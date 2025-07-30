@@ -27,7 +27,7 @@ export class EnvironmentAgent {
   }
 
   // 记录AI调用日志
-  private logAICall(log: AICallLog) {
+  private logAICall(_log: AICallLog) {
     /*
     this.worldState.logs.push({
       timestamp: log.timestamp,
@@ -281,132 +281,6 @@ export class EnvironmentAgent {
     });
 
     return agent;
-  }
-
-  // 处理对话链，确保对话连贯性和质量
-  private async processConversationChain(
-    initiator: BaseAgent,
-    chatAction: Action,
-    agents: BaseAgent[],
-    actionBuckets: { agent: BaseAgent; actions: Action[] }[]
-  ) {
-    const maxConversationDepth = 5; // 最多连续对话5轮
-    let conversationDepth = 0;
-    let currentSpeaker = initiator;
-    let currentAction = chatAction;
-    const conversationHistory: string[] = []; // 记录对话历史
-
-    while (conversationDepth < maxConversationDepth) {
-      // 确保当前动作是CHAT类型
-      if (currentAction.type !== "CHAT") {
-        break;
-      }
-
-      const currentChatAction = currentAction as Extract<
-        Action,
-        { type: "CHAT" }
-      >;
-
-      conversationHistory.push(currentChatAction.content);
-
-      // 执行当前CHAT动作
-      this.executeAction(currentSpeaker, currentAction);
-
-      // 寻找对话目标
-      const targetAgent = agents.find(
-        (a) =>
-          a.id === currentChatAction.targetId ||
-          a.name === currentChatAction.targetId
-      );
-      if (!targetAgent) {
-        break; // 目标不存在，结束对话链
-      }
-
-      // 如果目标是泰坦，让其响应但结束对话链（泰坦不主动继续对话）
-      if (this.isTitanAgent(targetAgent)) {
-        const reactionContext = `${currentSpeaker.name} 对你说道: "${currentChatAction.content}"。请简洁回应，体现泰坦的威严。`;
-        const reactions = await targetAgent.decide(
-          this.worldState as any,
-          reactionContext
-        );
-
-        const targetBucket = actionBuckets.find(
-          (b) => b.agent.id === targetAgent.id
-        );
-        if (targetBucket) {
-          targetBucket.actions.push(...reactions);
-        }
-        break; // 泰坦响应后结束对话链
-      }
-
-      // 让目标代理立即响应，强调简洁和目的性
-      const reactionContext = `${currentSpeaker.name} 对你说道: "${currentChatAction.content}"。请简洁回应，避免闲聊，尽快转向具体行动（如交易、移动、收集等）。`;
-      const reactions = await targetAgent.decide(
-        this.worldState as any,
-        reactionContext
-      );
-
-      // 查找响应中的动作
-      const nextChatAction = reactions.find(
-        (action) => action.type === "CHAT"
-      ) as Extract<Action, { type: "CHAT" }> | undefined;
-      
-      const otherActions = reactions.filter(
-        (action) => action.type !== "CHAT"
-      );
-
-      // 优先执行非CHAT动作（如收集、移动、交易等）
-      if (otherActions.length > 0) {
-        this.log(`${targetAgent.name} 在对话中决定执行 ${otherActions.length} 个动作`, 'medium');
-        for (const action of otherActions) {
-          this.executeAction(targetAgent, action);
-        }
-        this.onUpdate(this.worldState);
-      }
-
-      if (nextChatAction) {
-        // 如果有CHAT，继续对话链
-        currentSpeaker = targetAgent;
-        currentAction = nextChatAction;
-        conversationDepth++;
-      } else {
-        break;
-      }
-    }
-  }
-
-  // 处理单个非对话动作
-  private async processSingleAction(
-    agent: BaseAgent,
-    action: Action,
-    actionBuckets: { agent: BaseAgent; actions: Action[] }[]
-  ) {
-    let immediateResponse = undefined;
-
-    if (action.type === "INSPECT") {
-      const inspectAction = action as Extract<Action, { type: "INSPECT" }>;
-      const inspectionResult = this.executeAction(agent, action);
-      const reactionContext = `你观察了 ${inspectAction.targetId} 后得到如下信息: ${inspectionResult}`;
-      immediateResponse = { targetAgent: agent, reactionContext };
-    } else {
-      this.executeAction(agent, action);
-    }
-
-    // 处理即时反应（仅限INSPECT的自我反应）
-    if (immediateResponse) {
-      const { targetAgent, reactionContext } = immediateResponse;
-      const reactions = await targetAgent.decide(
-        this.worldState as any,
-        reactionContext
-      );
-
-      const targetBucket = actionBuckets.find(
-        (b) => b.agent.id === targetAgent.id
-      );
-      if (targetBucket) {
-        targetBucket.actions.push(...reactions);
-      }
-    }
   }
 
   // 修剪世界日志，保留重要日志并限制数量
@@ -765,7 +639,7 @@ export class EnvironmentAgent {
 
         // 如果当前城市没有资源，寻找其他有资源的城市
         if (!targetCity) {
-          for (const [cityId, city] of Object.entries(this.worldState.cityStates)) {
+          for (const [_cityId, city] of Object.entries(this.worldState.cityStates)) {
             const amount = city.resources[targetResource] || 0;
             if (amount > maxResource) {
               targetCity = city;
