@@ -1,0 +1,46 @@
+export const actionSchema = {
+  type: 'object',
+  properties: {
+    type: {
+      type: 'string',
+      enum: [
+        'MOVE',
+        'CHAT',
+        'NEGOTIATE',
+        'FORM_ALLIANCE',
+        'ATTACK',
+        'BUILD_DEFENSE',
+        'FORAGE',
+        'GATHER_RESOURCES',
+        'CRAFT_ITEM',
+        'CLEANSE_CORRUPTION',
+        'REST',
+        'USE_ABILITY',
+        'SPECIAL',
+        'INSPECT',
+        'TRADE',
+        'GIFT'
+      ]
+    },
+    targetCity: { type: 'string' },
+    targetId: { type: 'string' },
+    content: { type: 'string' },
+    proposal: { type: 'string' },
+    power: { type: 'number' },
+    cityId: { type: 'string' },
+    defenseType: { type: 'string', enum: ['WALL', 'WATCHTOWER'] },
+    resource: { type: 'string', enum: ['WOOD', 'STONE', 'MANA_CRYSTAL'] },
+    itemName: { type: 'string' },
+    materials: { type: 'object' },
+    areaId: { type: 'string' },
+    abilityName: { type: 'string' },
+    payload: { type: 'object' },
+    name: { type: 'string' },
+    items: { type: 'array', items: { type: 'string' } },
+    resources: { type: 'object' },
+    offer: { type: 'object' },
+    request: { type: 'object' },
+    message: { type: 'string' }
+  },
+  required: ['type']
+};
