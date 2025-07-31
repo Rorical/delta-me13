@@ -12,6 +12,17 @@ export function getNPCHealthByRole(role: NPCRole): number {
   return healthMap[role] || 60;
 }
 
+// 根据NPC角色获取攻击力
+export function getNPCPowerByRole(role: NPCRole): number {
+  const powerMap = {
+    'MERCHANT': 8,    // 商人攻击力较低
+    'GUARD': 20,      // 守卫攻击力较高
+    'SCHOLAR': 5,     // 学者攻击力最低
+    'CRAFTSMAN': 12   // 工匠攻击力中等
+  };
+  return powerMap[role] || 8;
+}
+
 // 根据NPC角色获取初始物品
 export function getNPCStartingInventory(role: NPCRole): Record<string, number> {
   const inventoryMap = {

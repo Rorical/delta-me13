@@ -77,19 +77,19 @@ export class OmphalosSimulation {
     goldenHeirs.forEach(heir => {
       initialWorldState.goldenHeirs[heir.id] = {
         name: heir.name,
-        location: getGoldenHeirLocation(heir.profile.path),
-        hp: 100,
-        maxHp: 100,
-        inventory: getGoldenHeirStartingInventory(heir.profile.path),
+        location: getGoldenHeirLocation(heir.getProfile().path),
+        hp: 100, // Default health
+        maxHp: 100, // Default max health
+        inventory: getGoldenHeirStartingInventory(heir.getProfile().path),
         allies: [],
-        path: heir.profile.path,
+        path: heir.getProfile().path,
         pathProgress: 0,
         embersCollected: 0,
-        targetTitanId: heir.profile.titanTarget || '',
-        power: getGoldenHeirPower(heir.profile.path),
+        targetTitanId: heir.getProfile().titanTarget || '',
+        power: getGoldenHeirPower(heir.getProfile().path),
         xp: 0,
         level: 1,
-        specialAbilities: heir.profile.specialAbilities || [],
+        specialAbilities: heir.getProfile().specialAbilities || [],
         pathMastery: 0,
         relationshipWithOthers: {},
         activeQuests: [],
@@ -160,13 +160,13 @@ export class OmphalosSimulation {
     const enhancedWorldState = enhanceOmphalosWorld(initialWorldState);
 
     // Create World Agent with the actual world state
-    const worldAgent = new WorldAgent('world_agent', '世界意志', client, enhancedWorldState, agentConfig);
+    const worldAgent = new WorldAgent('world_agent', '世界意志', client, enhancedWorldState);
     this.agents.push(worldAgent);
 
     this.environment = new EnvironmentAgent(enhancedWorldState, (state: OmphalosWorldState) => this.handleUpdate(state), client);
     
     // 设置代理日志回调
-    this.environment.setupAgentLogging(this.agents);
+    // this.environment.setupAgentLogging(this.agents); // This line is removed as per the edit hint.
   }
 
   private handleUpdate(state: OmphalosWorldState) {

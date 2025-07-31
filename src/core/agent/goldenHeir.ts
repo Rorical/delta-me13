@@ -19,19 +19,45 @@ export interface GoldenHeirProfile {
   personality: string;         // 性格描述
   backstory: string;          // 背景故事
   specialAbilities: string[]; // 特殊能力
+  combatStats?: {
+    attackPower: number;
+    defenseRating: number;
+    magicPower: number;
+    health: number;
+    maxHealth: number;
+    stamina: number;
+    maxStamina: number;
+  };
 }
 
 export class GoldenHeirAgent extends BaseAgent {
-  profile: GoldenHeirProfile;
+  private profile: GoldenHeirProfile;
+  private model: string;
+  private temperature: number;
+  private client: OpenAI;
   
   constructor(
-    id: string, 
-    profile: GoldenHeirProfile, 
-    client: OpenAI, 
+    id: string,
+    profile: GoldenHeirProfile,
+    client: OpenAI,
     config: { model?: string; temperature?: number } = {}
   ) {
-    super(id, profile.trueName, client, config);
+    // Initialize combat stats based on profile
+    const initialStats = {
+      attackPower: profile.combatStats?.attackPower || 15,
+      defenseRating: profile.combatStats?.defenseRating || 8,
+      magicPower: profile.combatStats?.magicPower || 5,
+      health: profile.combatStats?.health || 120,
+      maxHealth: profile.combatStats?.maxHealth || 120,
+      stamina: profile.combatStats?.stamina || 100,
+      maxStamina: profile.combatStats?.maxStamina || 100
+    };
+
+    super(id, profile.trueName, client, initialStats);
     this.profile = profile;
+    this.model = config.model ?? 'gpt-4o';
+    this.temperature = config.temperature ?? 0.7;
+    this.client = client;
   }
 
   async decide(world: Readonly<OmphalosWorldState>, context?: string): Promise<Action[]> {
@@ -279,6 +305,22 @@ ${memory.ltm_context}
       '守护': '守护珍视之物，不惜一切代价',
     };
     return driveDescriptions[this.profile.primeDrive] || '未知驱动';
+  }
+
+  // 检查是否为o1系列模型
+  protected isO1Model(): boolean {
+    return this.model.toLowerCase().includes('o1') || this.model.toLowerCase().includes('o4');
+  }
+
+  // 记录AI调用日志
+  protected logAICall(_prompt: string, _response: string, _duration: number, _tokenUsage?: any) {
+    // This method is now handled by the environment agent
+    // Keeping for compatibility but not implementing logging here
+  }
+
+  // Getter for profile to allow external access
+  public getProfile(): GoldenHeirProfile {
+    return this.profile;
   }
 
 

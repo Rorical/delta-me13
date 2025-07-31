@@ -55,8 +55,24 @@ export class WorldAgent extends BaseAgent {
   private lastEventTimes: Record<string, number> = {};
   private worldState: OmphalosWorldState;
 
-  constructor(id: string, name: string, client: OpenAI, worldState: OmphalosWorldState, config: { model?: string; temperature?: number } = {}) {
-    super(id, name, client, config);
+  constructor(
+    id: string,
+    name: string,
+    client: OpenAI,
+    worldState: OmphalosWorldState,
+  ) {
+    // World agents have minimal combat stats since they don't fight directly
+    const initialStats = {
+      attackPower: 0,
+      defenseRating: 100, // High defense since they're not meant to be attacked
+      magicPower: 50,
+      health: 1000,
+      maxHealth: 1000,
+      stamina: 1000,
+      maxStamina: 1000
+    };
+
+    super(id, name, client, initialStats);
     this.worldState = worldState;
     this.initializeEventTemplates();
   }

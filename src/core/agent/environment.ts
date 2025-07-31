@@ -1,8 +1,8 @@
-import type { OmphalosWorldState } from "../omphalosWorldState";
-import type { Action, BaseAgent, AICallLog } from "./base";
-import { getRecipe } from "../recipes";
-import { CommunicationService } from "../../services/comms";
-import { WorldAgent } from "./worldAgent";
+import { OmphalosWorldState } from '../omphalosWorldState';
+import { CommunicationService } from '../../services/comms';
+import { BaseAgent, Action, Equipment } from './base';
+import { getRecipe } from '../recipes';
+import { WorldAgent } from './worldAgent';
 
 export class EnvironmentAgent {
   private worldState: OmphalosWorldState;
@@ -16,44 +16,12 @@ export class EnvironmentAgent {
     openaiClient?: any
   ) {
     this.worldState = initialState;
-    this.comms = new CommunicationService();
     this.onUpdate = onUpdate;
-    
-    // 初始化世界代理
+    this.comms = new CommunicationService();
+
     if (openaiClient) {
-      this.worldAgent = new WorldAgent('world_agent', '世界意志', openaiClient, this.worldState);
+      this.worldAgent = new WorldAgent('world_agent', '世界意志', openaiClient, initialState);
     }
-  }
-
-  // 设置代理的日志回调
-  setupAgentLogging(agents: BaseAgent[]) {
-    agents.forEach((agent) => {
-      agent.setLogCallback((log: AICallLog) => {
-        this.logAICall(log);
-      });
-    });
-  }
-
-  // 记录AI调用日志
-  private logAICall(_log: AICallLog) {
-    /*
-    this.worldState.logs.push({
-      timestamp: log.timestamp,
-      day: this.worldState.day,
-      type: 'ai_call',
-      message: `${log.agentName}(${log.agentType}) 进行了思考 - 耗时${log.duration}ms`,
-      importance: 'low',
-      tags: ['ai_call', log.agentType.toLowerCase()],
-      metadata: {
-        agentId: log.agentId,
-        model: log.model,
-        duration: log.duration,
-        tokenUsage: log.tokenUsage,
-        prompt: log.prompt,
-        response: log.response
-      }
-    });*/
-    this.onUpdate(this.worldState);
   }
 
   public getState(): Readonly<OmphalosWorldState> {
@@ -145,7 +113,7 @@ export class EnvironmentAgent {
       conversationHistory.push(currentChatAction.content);
 
       // 执行当前CHAT动作
-      this.executeAction(currentSpeaker, currentAction);
+      this.executeAction(currentSpeaker, currentAction, agents);
 
       // 智能名字匹配：支持ID、名字、部分名字匹配
       const targetAgent = this.findAgentByNameOrId(
@@ -207,7 +175,7 @@ export class EnvironmentAgent {
         } else {
           // 直接执行其他动作
           for (const action of otherActions) {
-            this.executeAction(targetAgent, action);
+            this.executeAction(targetAgent, action, agents);
           }
         }
       } else {
@@ -235,7 +203,7 @@ export class EnvironmentAgent {
           } else {
             // 直接执行其他动作
             for (const action of reactions) {
-              this.executeAction(targetAgent, action);
+              this.executeAction(targetAgent, action, agents);
             }
           }
         } else {
@@ -250,7 +218,7 @@ export class EnvironmentAgent {
           } else {
             // 直接执行所有反应动作
             for (const action of reactions) {
-              this.executeAction(targetAgent, action);
+              this.executeAction(targetAgent, action, agents);
             }
           }
           break;
@@ -427,7 +395,7 @@ export class EnvironmentAgent {
           totalInteractions += 5; // 对话链消耗更多交互次数
         } else {
           // 非对话动作直接执行
-          const result = this.executeAction(agent, action);
+          const result = this.executeAction(agent, action, agents);
           if (result && typeof result === 'string') {
             // 将错误信息记录到代理的记忆中
             this.recordActionFailure(agent, action, result);
@@ -450,7 +418,7 @@ export class EnvironmentAgent {
     if (this.worldAgent) {
       const worldActions = await this.worldAgent.decide(this.worldState as any);
       for (const action of worldActions) {
-        this.executeAction(this.worldAgent, action);
+        this.executeAction(this.worldAgent, action, agents);
       }
     }
     
@@ -531,7 +499,7 @@ export class EnvironmentAgent {
     );
   }
 
-  private executeAction(agent: BaseAgent, action: Action): string | void {
+  private executeAction(agent: BaseAgent, action: Action, agents: BaseAgent[]): string | void {
     const agentStatus = this.getAgentStatus(agent.id);
     if (!agentStatus) {
       const errorMsg = `严重错误: 找不到电信号 ${agent.name} (${agent.id}) 的状态`;
@@ -613,32 +581,204 @@ export class EnvironmentAgent {
         }
         break;
 
-      // --- Combat & Defense ---
+      // --- Enhanced Combat & Defense ---
       case "ATTACK":
         const targetAgent = this.getAgentStatus(action.targetId);
         if (targetAgent) {
-          // Calculate damage based on attacker's power vs defender's current HP
-          const damage = Math.min(action.power, targetAgent.hp);
-          targetAgent.hp -= damage;
+          // Get attacker's combat stats
+          const attacker = agents.find(a => a.id === agent.id);
+          if (!attacker) {
+            const errorMsg = `无法找到攻击者 ${agent.name} 的战斗数据。`;
+            this.log(errorMsg);
+            return errorMsg;
+          }
+
+          // Calculate damage with weapon and special moves
+          let baseDamage = action.power;
+          let weaponDamage = 0;
+          let specialDamage = 0;
+
+          // Add weapon damage if specified
+          if (action.weapon) {
+            const weaponItem = attacker.equipment.find(e => e.name === action.weapon);
+            if (weaponItem) {
+              weaponDamage = weaponItem.attackPower || 0;
+              // Reduce weapon durability
+              weaponItem.durability = Math.max(0, weaponItem.durability - 1);
+              if (weaponItem.durability === 0) {
+                this.log(`${agent.name} 的 ${action.weapon} 损坏了！`);
+                attacker.unequipItem(weaponItem);
+              }
+            }
+          }
+
+          // Add special move damage
+          if (action.specialMove) {
+            specialDamage = Math.floor(baseDamage * 0.5);
+            // Consume stamina for special moves
+            attacker.combatStats.stamina = Math.max(0, attacker.combatStats.stamina - 20);
+          }
+
+          const totalDamage = attacker.calculateAttackDamage(baseDamage + weaponDamage + specialDamage, action.weapon);
+          
+          // Calculate final damage considering target's defense
+          const targetDefense = targetAgent.defenseRating || 0;
+          const finalDamage = Math.max(1, totalDamage - targetDefense);
+          
+          targetAgent.hp -= finalDamage;
 
           this.log(
-            `${agent.name} 攻击了 ${action.targetId}, 造成 ${damage} 点伤害。目标剩余HP: ${targetAgent.hp}。`
+            `${agent.name} ${action.specialMove ? `使用${action.specialMove}攻击` : '攻击'}了 ${action.targetId}, 造成 ${finalDamage} 点伤害。目标剩余HP: ${targetAgent.hp}。`
           );
 
           if (targetAgent.hp <= 0) {
             this.log(`${action.targetId} 被击败了!`, "high");
-            // In a full implementation, you might remove the agent from the world or mark them as dead
+            // Add experience or loot to attacker
+            if (attacker.combatStats) {
+              attacker.combatStats.attackPower = Math.min(100, attacker.combatStats.attackPower + 1);
+            }
           }
 
           // Attacker takes minor damage from combat
-          agentStatus.hp -= Math.floor(damage * 0.1);
-          if (agentStatus.hp < 0) agentStatus.hp = 0;
+          const recoilDamage = Math.floor(finalDamage * 0.1);
+          attacker.combatStats.health -= recoilDamage;
+          if (attacker.combatStats.health < 0) attacker.combatStats.health = 0;
         } else {
           const errorMsg = `${agent.name} 无法攻击不存在的目标 ${action.targetId}。`;
           this.log(errorMsg);
           return errorMsg;
         }
         break;
+
+      case "DEFEND":
+        const defender = agents.find(a => a.id === agent.id);
+        if (!defender) {
+          const errorMsg = `无法找到防御者 ${agent.name} 的战斗数据。`;
+          this.log(errorMsg);
+          return errorMsg;
+        }
+
+        // Apply defense effects based on type
+        switch (action.defenseType) {
+          case 'BLOCK':
+            defender.addCombatEffect({
+              type: 'BUFF',
+              name: 'defense_boost',
+              magnitude: 10,
+              duration: 2,
+              source: 'block'
+            });
+            this.log(`${agent.name} 摆出防御姿态，防御力提升。`);
+            break;
+          case 'DODGE':
+            defender.addCombatEffect({
+              type: 'BUFF',
+              name: 'evasion',
+              magnitude: 15,
+              duration: 1,
+              source: 'dodge'
+            });
+            this.log(`${agent.name} 准备闪避攻击。`);
+            break;
+          case 'COUNTER':
+            defender.addCombatEffect({
+              type: 'BUFF',
+              name: 'counter_attack',
+              magnitude: 20,
+              duration: 1,
+              source: 'counter'
+            });
+            this.log(`${agent.name} 准备反击。`);
+            break;
+        }
+        break;
+
+      case "USE_WEAPON":
+        const weaponUser = agents.find(a => a.id === agent.id);
+        if (!weaponUser) {
+          const errorMsg = `无法找到武器使用者 ${agent.name} 的战斗数据。`;
+          this.log(errorMsg);
+          return errorMsg;
+        }
+
+        const weaponItem = weaponUser.equipment.find(e => e.name === action.weapon);
+        if (!weaponItem) {
+          const errorMsg = `${agent.name} 没有装备 ${action.weapon}。`;
+          this.log(errorMsg);
+          return errorMsg;
+        }
+
+        // Use weapon special ability if available
+        if (action.specialAbility && weaponItem.specialEffects?.includes(action.specialAbility)) {
+          this.log(`${agent.name} 使用 ${action.weapon} 的特殊能力: ${action.specialAbility}。`);
+          
+          // Apply special ability effects
+          if (action.specialAbility === 'magic_damage') {
+            weaponUser.addCombatEffect({
+              type: 'BUFF',
+              name: 'magic_enhancement',
+              magnitude: 15,
+              duration: 3,
+              source: 'magic_weapon'
+            });
+          }
+        } else {
+          this.log(`${agent.name} 使用 ${action.weapon} 进行攻击。`);
+        }
+        break;
+
+      case "USE_ARMOR":
+        const armorUser = agents.find(a => a.id === agent.id);
+        if (!armorUser) {
+          const errorMsg = `无法找到护甲使用者 ${agent.name} 的战斗数据。`;
+          this.log(errorMsg);
+          return errorMsg;
+        }
+
+        const armorItem = armorUser.equipment.find(e => e.type === 'ARMOR');
+        if (!armorItem) {
+          const errorMsg = `${agent.name} 没有装备护甲。`;
+          this.log(errorMsg);
+          return errorMsg;
+        }
+
+        if (action.defenseType === 'ACTIVATE') {
+          // Activate armor special effects
+          if (armorItem.specialEffects?.includes('magic_resistance')) {
+            armorUser.addCombatEffect({
+              type: 'BUFF',
+              name: 'magic_resistance',
+              magnitude: 20,
+              duration: 5,
+              source: 'enchanted_armor'
+            });
+            this.log(`${agent.name} 激活了护甲的魔法抗性。`);
+          }
+        } else if (action.defenseType === 'REPAIR') {
+          // Repair armor
+          armorItem.durability = Math.min(armorItem.maxDurability, armorItem.durability + 10);
+          this.log(`${agent.name} 修复了护甲，耐久度恢复。`);
+        }
+        break;
+
+      case "USE_CONSUMABLE":
+        const consumableUser = agents.find(a => a.id === agent.id);
+        if (!consumableUser) {
+          const errorMsg = `无法找到消耗品使用者 ${agent.name} 的战斗数据。`;
+          this.log(errorMsg);
+          return errorMsg;
+        }
+
+        const success = consumableUser.useConsumable(action.item, action.targetId);
+        if (success) {
+          this.log(`${agent.name} 使用了 ${action.item}。`);
+        } else {
+          const errorMsg = `${agent.name} 没有 ${action.item} 或无法使用。`;
+          this.log(errorMsg);
+          return errorMsg;
+        }
+        break;
+
       case "BUILD_DEFENSE":
         const target_city = this.worldState.cityStates[action.cityId];
         if (target_city && agentStatus.location === action.cityId) {
@@ -740,11 +880,12 @@ export class EnvironmentAgent {
         }
         break;
       case "CRAFT_ITEM":
-        // Enhanced crafting system with recipe lookup
+        // Enhanced crafting system with recipe lookup and equipment integration
         const recipe = getRecipe(action.itemName);
         if (!recipe) {
-          this.log(`${agent.name} 尝试制作未知的物品: ${action.itemName}。`);
-          break;
+          const errorMsg = `${agent.name} 尝试制作未知的物品: ${action.itemName}。`;
+          this.log(errorMsg);
+          return errorMsg;
         }
 
         // Check if agent has required materials (use recipe materials if action materials not provided)
@@ -758,6 +899,18 @@ export class EnvironmentAgent {
         );
 
         if (hasAllMaterials) {
+          // Check if agent has required skills
+          const agentSkills = agentStatus.skills || [];
+          const hasRequiredSkills = !recipe.requiredSkills || 
+            recipe.requiredSkills.every(skill => agentSkills.includes(skill));
+
+          if (!hasRequiredSkills) {
+            const missingSkills = recipe.requiredSkills?.filter(skill => !agentSkills.includes(skill)).join(", ") || "";
+            const errorMsg = `${agent.name} 因缺少技能而无法制作 ${recipe.name}。缺少技能: ${missingSkills}。`;
+            this.log(errorMsg);
+            return errorMsg;
+          }
+
           // Consume materials
           Object.entries(requiredMaterials).forEach(([material, required]) => {
             agentStatus.inventory[material] =
@@ -768,13 +921,79 @@ export class EnvironmentAgent {
           const outputItem = recipe.output.item;
           const outputQuantity = recipe.output.quantity;
 
-          if (!agentStatus.inventory[outputItem])
-            agentStatus.inventory[outputItem] = 0;
-          agentStatus.inventory[outputItem] += outputQuantity;
+          // Handle equipment items differently
+          if (recipe.category === 'WEAPON' || recipe.category === 'ARMOR' || recipe.category === 'CONSUMABLE') {
+            // Create equipment object
+            const equipment: Equipment = {
+              name: outputItem,
+              type: recipe.category === 'WEAPON' ? 'WEAPON' : 
+                    recipe.category === 'ARMOR' ? 'ARMOR' : 'CONSUMABLE',
+              attackPower: recipe.itemProperties?.attackPower,
+              defenseRating: recipe.itemProperties?.defenseRating,
+              magicPower: recipe.itemProperties?.magicPower,
+              specialEffects: recipe.itemProperties?.specialEffects,
+              durability: recipe.itemProperties?.durability || 100,
+              maxDurability: recipe.itemProperties?.durability || 100
+            };
 
-          this.log(
-            `${agent.name} 成功制作了 ${outputQuantity}x ${recipe.name}。`
-          );
+            // Add to agent's equipment inventory
+            if (!agentStatus.equipment) agentStatus.equipment = [];
+            agentStatus.equipment.push(equipment);
+
+            // Auto-equip if it's better than current equipment
+            const agentInstance = agents.find((a: BaseAgent) => a.id === agent.id);
+            if (agentInstance) {
+              if (recipe.category === 'WEAPON') {
+                const currentWeapon = agentInstance.equipment.find((e: Equipment) => e.type === 'WEAPON');
+                if (!currentWeapon || (equipment.attackPower || 0) > (currentWeapon.attackPower || 0)) {
+                  agentInstance.equipItem(equipment);
+                  this.log(`${agent.name} 自动装备了 ${recipe.name}。`);
+                }
+              } else if (recipe.category === 'ARMOR') {
+                const currentArmor = agentInstance.equipment.find((e: Equipment) => e.type === 'ARMOR');
+                if (!currentArmor || (equipment.defenseRating || 0) > (currentArmor.defenseRating || 0)) {
+                  agentInstance.equipItem(equipment);
+                  this.log(`${agent.name} 自动装备了 ${recipe.name}。`);
+                }
+              }
+            }
+
+            this.log(
+              `${agent.name} 成功制作了 ${outputQuantity}x ${recipe.name} (${recipe.rarity || 'COMMON'})。`
+            );
+          } else {
+            // Regular inventory items
+            if (!agentStatus.inventory[outputItem])
+              agentStatus.inventory[outputItem] = 0;
+            agentStatus.inventory[outputItem] += outputQuantity;
+
+            this.log(
+              `${agent.name} 成功制作了 ${outputQuantity}x ${recipe.name}。`
+            );
+          }
+
+          // Grant experience for crafting
+          if (!agentStatus.craftingExperience) agentStatus.craftingExperience = 0;
+          const expGain = recipe.difficulty === 'BASIC' ? 1 : 
+                         recipe.difficulty === 'INTERMEDIATE' ? 3 :
+                         recipe.difficulty === 'ADVANCED' ? 5 : 10;
+          agentStatus.craftingExperience += expGain;
+
+          // Level up skills based on experience
+          if (agentStatus.craftingExperience >= 10 && !agentSkills.includes('blacksmithing')) {
+            agentSkills.push('blacksmithing');
+            this.log(`${agent.name} 学会了锻造技能！`);
+          }
+          if (agentStatus.craftingExperience >= 20 && !agentSkills.includes('enchanting')) {
+            agentSkills.push('enchanting');
+            this.log(`${agent.name} 学会了附魔技能！`);
+          }
+          if (agentStatus.craftingExperience >= 30 && !agentSkills.includes('alchemy')) {
+            agentSkills.push('alchemy');
+            this.log(`${agent.name} 学会了炼金技能！`);
+          }
+
+          agentStatus.skills = agentSkills;
         } else {
           const missingMaterials = Object.entries(requiredMaterials)
             .filter(
@@ -783,9 +1002,9 @@ export class EnvironmentAgent {
             )
             .map(([material, required]) => `${material}(需要${required})`)
             .join(", ");
-          this.log(
-            `${agent.name} 因缺少材料而无法制作 ${recipe.name}。缺少: ${missingMaterials}。`
-          );
+          const errorMsg = `${agent.name} 因缺少材料而无法制作 ${recipe.name}。缺少: ${missingMaterials}。`;
+          this.log(errorMsg);
+          return errorMsg;
         }
         break;
 

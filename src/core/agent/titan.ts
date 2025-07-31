@@ -6,11 +6,45 @@ import { type TitanProfile } from './titanProfiles';
 import { actionSchema } from './actionSchema';
 
 export class TitanAgent extends BaseAgent {
-  profile: TitanProfile;
+  private profile: TitanProfile;
+  private model: string;
+  private temperature: number;
+  private client: OpenAI;
 
-  constructor(id: string, name: string, profile: TitanProfile, client: OpenAI, config: { model?: string; temperature?: number } = {}) {
-    super(id, name, client, config);
+  constructor(
+    id: string,
+    name: string,
+    profile: TitanProfile,
+    client: OpenAI,
+    config: { model?: string; temperature?: number } = {}
+  ) {
+    // Initialize combat stats based on profile
+    const initialStats = {
+      attackPower: profile.combatStats?.attackPower || 30,
+      defenseRating: profile.combatStats?.defenseRating || 25,
+      magicPower: profile.combatStats?.magicPower || 20,
+      health: profile.combatStats?.health || 200,
+      maxHealth: profile.combatStats?.maxHealth || 200,
+      stamina: profile.combatStats?.stamina || 150,
+      maxStamina: profile.combatStats?.maxStamina || 150
+    };
+
+    super(id, name, client, initialStats);
     this.profile = profile;
+    this.model = config.model ?? 'gpt-4o';
+    this.temperature = config.temperature ?? 0.7;
+    this.client = client;
+  }
+
+  // 检查是否为o1系列模型
+  protected isO1Model(): boolean {
+    return this.model.toLowerCase().includes('o1') || this.model.toLowerCase().includes('o4');
+  }
+
+  // 记录AI调用日志
+  protected logAICall(_prompt: string, _response: string, _duration: number, _tokenUsage?: any) {
+    // This method is now handled by the environment agent
+    // Keeping for compatibility but not implementing logging here
   }
 
   async decide(world: Readonly<OmphalosWorldState>, context?: string): Promise<Action[]> {

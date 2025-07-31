@@ -19,6 +19,16 @@ export interface TitanProfile {
   relationshipWithGoldenHeirs?: Record<string, number>; // 与黄金裔的关系(-100到100)
   followers?: string[];            // 信徒和追随者
   sacredSites?: string[];          // 神圣地点
+  // 新增：战斗系统相关
+  combatStats?: {
+    attackPower: number;
+    defenseRating: number;
+    magicPower: number;
+    health: number;
+    maxHealth: number;
+    stamina: number;
+    maxStamina: number;
+  };
 }
 
 export const TWELVE_TITANS: TitanProfile[] = [

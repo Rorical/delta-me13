@@ -4,15 +4,48 @@ import OpenAI from 'openai';
 import { AIMessage, HumanMessage } from '../memory/openai-memory';
 import { getNPCRoleProfile, getDefaultNPCProfile } from './npcProfiles';
 import { actionSchema } from './actionSchema';
-
-type NPCRole = 'MERCHANT' | 'GUARD' | 'SCHOLAR' | 'CRAFTSMAN';
+import { getNPCHealthByRole, getNPCPowerByRole, type NPCRole } from '../config/npcConfig';
 
 export class NpcAgent extends BaseAgent {
-  role: NPCRole;
+  private role: NPCRole;
+  private model: string;
+  private temperature: number;
+  private client: OpenAI;
 
-  constructor(id: string, name: string, role: NPCRole, client: OpenAI, config: { model?: string; temperature?: number } = {}) {
-    super(id, name, client, config);
+  constructor(
+    id: string,
+    name: string,
+    role: NPCRole,
+    client: OpenAI,
+    config: { model?: string; temperature?: number } = {}
+  ) {
+    // Initialize combat stats based on role
+    const initialStats = {
+      attackPower: getNPCPowerByRole(role),
+      defenseRating: getNPCHealthByRole(role) / 10, // Simple defense calculation
+      magicPower: role === 'SCHOLAR' ? 10 : 0,
+      health: getNPCHealthByRole(role),
+      maxHealth: getNPCHealthByRole(role),
+      stamina: 80,
+      maxStamina: 80
+    };
+
+    super(id, name, client, initialStats);
     this.role = role;
+    this.model = config.model ?? 'gpt-4o';
+    this.temperature = config.temperature ?? 0.7;
+    this.client = client;
+  }
+
+  // 检查是否为o1系列模型
+  protected isO1Model(): boolean {
+    return this.model.toLowerCase().includes('o1') || this.model.toLowerCase().includes('o4');
+  }
+
+  // 记录AI调用日志
+  protected logAICall(_prompt: string, _response: string, _duration: number, _tokenUsage?: any) {
+    // This method is now handled by the environment agent
+    // Keeping for compatibility but not implementing logging here
   }
 
   async decide(world: Readonly<OmphalosWorldState>, context?: string): Promise<Action[]> {

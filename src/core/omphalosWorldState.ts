@@ -1,4 +1,6 @@
 // 翁法罗斯世界状态 - 完整的逐火之旅世界建模
+import { Equipment } from './agent/base';
+
 export interface OmphalosWorldState {
   // === 时间与纪元 ===
   day: number;
@@ -198,6 +200,22 @@ export interface GoldenHeirStatus {
   hasDiedOnce: boolean;             // 是否已经死过一次
   corruptionResistance: number;     // 黑潮抗性
   emberResonance: number;           // 火种共鸣
+  
+  // 新增：战斗系统相关
+  defenseRating?: number;           // 防御力
+  attackPower?: number;             // 攻击力
+  magicPower?: number;              // 魔法力
+  stamina?: number;                 // 耐力
+  maxStamina?: number;              // 最大耐力
+  
+  // 新增：装备系统
+  equipment?: Equipment[];          // 装备列表
+  equippedWeapon?: string;          // 当前装备的武器
+  equippedArmor?: string;           // 当前装备的护甲
+  
+  // 新增：技能系统
+  skills?: string[];                // 掌握的技能
+  craftingExperience?: number;      // 制作经验
 }
 
 // === 泰坦状态 ===
@@ -223,6 +241,18 @@ export interface TitanStatus {
   // 对黄金裔的态度
   challengersDefeated: string[];    // 击败的挑战者
   respectForChallengers: Record<string, number>; // 对特定挑战者的尊重
+  
+  // 新增：战斗系统相关
+  defenseRating?: number;           // 防御力
+  attackPower?: number;             // 攻击力
+  magicPower?: number;              // 魔法力
+  stamina?: number;                 // 耐力
+  maxStamina?: number;              // 最大耐力
+  
+  // 新增：装备系统
+  equipment?: Equipment[];          // 装备列表
+  equippedWeapon?: string;          // 当前装备的武器
+  equippedArmor?: string;           // 当前装备的护甲
 }
 
 // === NPC状态 ===
@@ -242,6 +272,22 @@ export interface NPCStatus {
   tradingGoods: Record<string, number>;
   isCorrupted: boolean;             // 是否被黑潮黑潮
   corruptionLevel: number;          // 黑潮程度
+  
+  // 新增：战斗系统相关
+  defenseRating?: number;           // 防御力
+  attackPower?: number;             // 攻击力
+  magicPower?: number;              // 魔法力
+  stamina?: number;                 // 耐力
+  maxStamina?: number;              // 最大耐力
+  
+  // 新增：装备系统
+  equipment?: Equipment[];          // 装备列表
+  equippedWeapon?: string;          // 当前装备的武器
+  equippedArmor?: string;           // 当前装备的护甲
+  
+  // 新增：技能系统
+  skills?: string[];                // 掌握的技能
+  craftingExperience?: number;      // 制作经验
 }
 
 // === 全局资源 ===
