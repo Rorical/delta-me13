@@ -6,13 +6,13 @@ export interface LocationConfig {
 }
 
 export const DEFAULT_LOCATION_CONFIG: LocationConfig = {
-  defaultCities: ["city-of-dawn", "fortress-of-dusk"],
+  defaultCities: ["奥赫玛", "悬锋城"],
   spawnStrategy: 'alternating',
   customPlacements: {
     // 可以为特定代理指定位置
-    "titan1": "city-of-dawn", // 克洛诺斯守护晨曦之城
-    "npc1": "city-of-dawn",   // 商人在晨曦之城
-    "npc2": "fortress-of-dusk" // 守卫在黄昏要塞
+    "titan1": "奥赫玛", // 克洛诺斯守护奥赫玛
+    "npc1": "奥赫玛",   // 商人在奥赫玛
+    "npc2": "悬锋城"    // 守卫在悬锋城
   }
 };
 
@@ -51,13 +51,13 @@ export function getAgentStartingLocation(
 
 // 黄金裔特殊位置配置 - 根据路径分配
 export const GOLDEN_HEIR_LOCATIONS: Record<string, string> = {
-  "负世": "corrupted-plains", // 白厄应该在黑潮之地
-  "岁月": "city-of-dawn",     // 昔涟在时间流逝的晨曦之城
-  "诡计": "fortress-of-dusk", // 赛飞儿在战略要地
-  "死亡": "cemetery-district", // 遐蝶在死者安息之地
-  "理性": "academy-quarter"   // 思辨在学术区域
+  "负世": "哀地里亚",     // 白厄应该在黑潮之地
+  "岁月": "奥赫玛",       // 昔涟在时间流逝的奥赫玛
+  "诡计": "悬锋城",       // 赛飞儿在战略要地
+  "死亡": "斯缇科西亚",   // 遐蝶在死者安息之地
+  "理性": "神悟树庭"      // 思辨在学术区域
 };
 
 export function getGoldenHeirLocation(path: string): string {
-  return GOLDEN_HEIR_LOCATIONS[path] || "city-of-dawn";
+  return GOLDEN_HEIR_LOCATIONS[path] || "奥赫玛";
 }

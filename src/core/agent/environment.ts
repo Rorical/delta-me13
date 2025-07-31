@@ -2,19 +2,27 @@ import type { OmphalosWorldState } from "../omphalosWorldState";
 import type { Action, BaseAgent, AICallLog } from "./base";
 import { getRecipe } from "../recipes";
 import { CommunicationService } from "../../services/comms";
+import { WorldAgent } from "./worldAgent";
 
 export class EnvironmentAgent {
   private worldState: OmphalosWorldState;
   private comms: CommunicationService;
   private onUpdate: (state: OmphalosWorldState) => void;
+  private worldAgent?: WorldAgent;
 
   constructor(
     initialState: OmphalosWorldState,
-    onUpdate: (state: OmphalosWorldState) => void = () => {}
+    onUpdate: (state: OmphalosWorldState) => void = () => {},
+    openaiClient?: any
   ) {
     this.worldState = initialState;
     this.comms = new CommunicationService();
     this.onUpdate = onUpdate;
+    
+    // 初始化世界代理
+    if (openaiClient) {
+      this.worldAgent = new WorldAgent('world_agent', '世界意志', openaiClient, this.worldState);
+    }
   }
 
   // 设置代理的日志回调
@@ -331,6 +339,43 @@ export class EnvironmentAgent {
     this.onUpdate(this.worldState);
   }
 
+  // 记录动作失败信息到代理记忆
+  private recordActionFailure(agent: BaseAgent, action: Action, errorMessage: string) {
+    // 将错误信息添加到世界日志中
+    this.worldState.logs.push({
+      timestamp: Date.now(),
+      day: this.worldState.day,
+      type: "event",
+      message: `${agent.name} 动作失败: ${errorMessage}`,
+      importance: "medium",
+      tags: ["action_failure", agent.id],
+      metadata: {
+        agentId: agent.id,
+        actionType: action.type,
+        actionTarget: (action as any).targetId || (action as any).targetCity || "unknown",
+        errorMessage: errorMessage
+      }
+    });
+
+    // 将错误信息记录到世界状态中，供代理下次决策时参考
+    if (!this.worldState.logs.some(log => 
+      log.type === "event" && 
+      log.message.includes("动作失败") && 
+      log.message.includes(errorMessage)
+    )) {
+      this.worldState.logs.push({
+        timestamp: Date.now(),
+        day: this.worldState.day,
+        type: "event",
+        message: `系统提示: ${agent.name} 的 ${action.type} 动作失败 - ${errorMessage}`,
+        importance: "medium",
+        tags: ["system_feedback", agent.id],
+      });
+    }
+
+    this.onUpdate(this.worldState);
+  }
+
   public async runDailyCycle(agents: BaseAgent[]) {
     this.worldState.day++;
     this.log("新的一天开始了。", "high");
@@ -382,7 +427,11 @@ export class EnvironmentAgent {
           totalInteractions += 5; // 对话链消耗更多交互次数
         } else {
           // 非对话动作直接执行
-          this.executeAction(agent, action);
+          const result = this.executeAction(agent, action);
+          if (result && typeof result === 'string') {
+            // 将错误信息记录到代理的记忆中
+            this.recordActionFailure(agent, action, result);
+          }
           totalInteractions++;
         }
 
@@ -396,6 +445,15 @@ export class EnvironmentAgent {
 
     // 3. World events
     this.processWorldEvents();
+    
+    // 4. 世界代理决策
+    if (this.worldAgent) {
+      const worldActions = await this.worldAgent.decide(this.worldState as any);
+      for (const action of worldActions) {
+        this.executeAction(this.worldAgent, action);
+      }
+    }
+    
     this.onUpdate(this.worldState);
 
     // 4. 内存管理
@@ -473,11 +531,12 @@ export class EnvironmentAgent {
     );
   }
 
-  private executeAction(agent: BaseAgent, action: Action) {
+  private executeAction(agent: BaseAgent, action: Action): string | void {
     const agentStatus = this.getAgentStatus(agent.id);
     if (!agentStatus) {
-      this.log(`严重错误: 找不到电信号 ${agent.name} (${agent.id}) 的状态`);
-      return;
+      const errorMsg = `严重错误: 找不到电信号 ${agent.name} (${agent.id}) 的状态`;
+      this.log(errorMsg);
+      return errorMsg;
     }
 
     switch (action.type) {
@@ -487,15 +546,10 @@ export class EnvironmentAgent {
           agentStatus.location = action.targetCity;
           this.log(`${agent.name} 移动到了 ${action.targetCity}。`, "medium");
         } else {
-          this.log(
-            `${agent.name} 试图移动到不存在的城市 ${action.targetCity}。`,
-            "low"
-          );
-          // 提供合法城市列表给代理记忆
-          const validCities = Object.keys(this.worldState.cityStates).join(
-            ", "
-          );
-          return `移动失败：城市"${action.targetCity}"不存在。可用城市: ${validCities}`;
+          const validCities = Object.keys(this.worldState.cityStates).join(", ");
+          const errorMsg = `移动失败：城市"${action.targetCity}"不存在。可用城市: ${validCities}`;
+          this.log(`${agent.name} 试图移动到不存在的城市 ${action.targetCity}。`, "low");
+          return errorMsg;
         }
         break;
 
@@ -553,9 +607,9 @@ export class EnvironmentAgent {
           targetStatus.allies.push(agent.id);
           this.log(`${agent.name} 与 ${action.targetId} 结成了同盟。`);
         } else {
-          this.log(
-            `${agent.name} 与不存在的代理 ${action.targetId} 结盟失败。`
-          );
+          const errorMsg = `${agent.name} 与不存在的代理 ${action.targetId} 结盟失败。`;
+          this.log(errorMsg);
+          return errorMsg;
         }
         break;
 
@@ -580,7 +634,9 @@ export class EnvironmentAgent {
           agentStatus.hp -= Math.floor(damage * 0.1);
           if (agentStatus.hp < 0) agentStatus.hp = 0;
         } else {
-          this.log(`${agent.name} 无法攻击不存在的目标 ${action.targetId}。`);
+          const errorMsg = `${agent.name} 无法攻击不存在的目标 ${action.targetId}。`;
+          this.log(errorMsg);
+          return errorMsg;
         }
         break;
       case "BUILD_DEFENSE":
@@ -593,9 +649,9 @@ export class EnvironmentAgent {
             `${agent.name} 在 ${action.cityId} 建立了一座 ${action.defenseType}。该城防御变为: 城墙 ${target_city.defenses.walls}, 瞭望塔 ${target_city.defenses.watchtowers}。`
           );
         } else {
-          this.log(
-            `${agent.name} 在 ${action.cityId} 建造失败，原因可能是不在该地或城市不存在。`
-          );
+          const errorMsg = `${agent.name} 在 ${action.cityId} 建造失败，原因可能是不在该地或城市不存在。当前位置: ${agentStatus.location}`;
+          this.log(errorMsg);
+          return errorMsg;
         }
         break;
 
@@ -737,20 +793,16 @@ export class EnvironmentAgent {
       case "TRADE":
         const tradeTarget = this.getAgentStatus(action.targetId);
         if (!tradeTarget) {
-          this.log(
-            `${agent.name} 试图与不存在的目标 ${action.targetId} 交易。`,
-            "low"
-          );
-          break;
+          const errorMsg = `${agent.name} 试图与不存在的目标 ${action.targetId} 交易。`;
+          this.log(errorMsg, "low");
+          return errorMsg;
         }
 
         // 检查交易双方是否在同一城市
         if (agentStatus.location !== tradeTarget.location) {
-          this.log(
-            `${agent.name} 无法与 ${action.targetId} 交易 - 不在同一城市。`,
-            "low"
-          );
-          break;
+          const errorMsg = `${agent.name} 无法与 ${action.targetId} 交易 - 不在同一城市。当前位置: ${agentStatus.location}, 目标位置: ${tradeTarget.location}`;
+          this.log(errorMsg, "low");
+          return errorMsg;
         }
 
         // 检查交易参数是否有效
@@ -922,6 +974,23 @@ export class EnvironmentAgent {
       // --- Special & Abilities ---
       case "USE_ABILITY":
         this.log(`${agent.name} 使用了能力: ${action.abilityName}。`);
+        break;
+
+      // --- World Events ---
+      case "WORLD_EVENT":
+        this.log(
+          `世界事件触发: ${action.parameters.eventName} - ${action.parameters.description}`,
+          action.parameters.severity === 'world_changing' ? 'critical' : 'high',
+          ['world_event']
+        );
+        break;
+
+      case "ENVIRONMENT_CHANGE":
+        this.log(
+          `环境变化: ${action.parameters.description}`,
+          'medium',
+          ['environment_change']
+        );
         break;
 
       default:

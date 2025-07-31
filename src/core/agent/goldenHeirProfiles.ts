@@ -117,7 +117,7 @@ export const KNOWN_GOLDEN_HEIRS: GoldenHeirProfile[] = [
   },
   {
     codename: "SkeMma720",
-    trueName: "思辨",
+    trueName: "那刻夏",
     path: "理性",
     primeDrive: "批判", 
     titanTarget: "瑟希斯",
@@ -131,51 +131,51 @@ export const KNOWN_GOLDEN_HEIRS: GoldenHeirProfile[] = [
 export const ADDITIONAL_GOLDEN_HEIRS: Partial<GoldenHeirProfile>[] = [
   {
     codename: "ForTis777",
-    trueName: "刚烈",
+    trueName: "万敌",
     path: "力量",
     primeDrive: "野心",
     titanTarget: "尼卡多利" // 天谴之矛
   },
   {
     codename: "SophiA444", 
-    trueName: "慧心",
+    trueName: "提宝",
     path: "智慧",
     primeDrive: "探索",
     titanTarget: "雅努斯" // 万径之门
   },
   {
     codename: "JustiS333",
-    trueName: "正念", 
+    trueName: "刻律德菈", 
     path: "正义",
     primeDrive: "保护",
     titanTarget: "塔兰顿" // 公正之秤
   },
   {
     codename: "Sky666",
-    trueName: "天澜",
-    path: "混沌", 
+    trueName: "海瑟音",
+    path: "混沌",
     primeDrive: "希望",
     titanTarget: "艾格勒"
   },
   {
     codename: "OrdO111",
-    trueName: "序章",
+    trueName: "大地兽",
     path: "秩序",
     primeDrive: "统治", 
     titanTarget: "吉奥里亚" // 磐岩之脊
   },
   {
     codename: "CreA888",
-    trueName: "创生",
+    trueName: "海瑟音",
     path: "创造",
     primeDrive: "希望",
     titanTarget: "法吉娜" // 满溢之杯
   },
   {
     codename: "DesTroy999",
-    trueName: "终结",
-    path: "毁灭", 
-    primeDrive: "恐惧",
+    trueName: "阿格莱亚",
+    path: "浪漫", 
+    primeDrive: "守护",
     titanTarget: "墨涅塔" // 黄金之茧
   }
 ];

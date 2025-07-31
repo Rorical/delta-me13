@@ -166,5 +166,11 @@ const isOmphalos = computed(() => {
   .right-panel {
     padding: 15px;
   }
+  
+  .panel-content {
+    height: auto;
+    min-height: 200px;
+    max-height: none;
+  }
 }
 </style> 

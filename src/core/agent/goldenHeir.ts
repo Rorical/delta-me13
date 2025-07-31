@@ -5,10 +5,10 @@ import { AIMessage, HumanMessage } from '../memory/openai-memory';
 import { actionSchema } from './actionSchema';
 
 // 黄金裔路径定义
-export type GoldenHeirPath = '负世' | '岁月' | '诡计' | '死亡' | '理性' | '力量' | '智慧' | '正义' | '混沌' | '秩序' | '创造' | '毁灭';
+export type GoldenHeirPath = '负世' | '岁月' | '诡计' | '死亡' | '理性' | '力量' | '智慧' | '正义' | '混沌' | '秩序' | '创造' | '毁灭' | '浪漫';
 
 // 原动力定义  
-export type PrimeDrive = '憎恨' | '渴望' | '平和' | '批判' | '希望' | '恐惧' | '野心' | '保护' | '复仇' | '救赎' | '探索' | '统治';
+export type PrimeDrive = '憎恨' | '渴望' | '平和' | '批判' | '希望' | '恐惧' | '野心' | '保护' | '复仇' | '救赎' | '探索' | '统治' | '守护';
 
 export interface GoldenHeirProfile {
   codename: string;    // 代号 (如 NeiKos496)
@@ -256,7 +256,8 @@ ${memory.ltm_context}
       '混沌': '拥抱变化和无序，打破既有规则',
       '秩序': '维持稳定和规律，建立完美体系',
       '创造': '孕育新生和可能，创造美好事物',
-      '毁灭': '终结腐朽和错误，为新生清理道路'
+      '毁灭': '终结腐朽和错误，为新生清理道路',
+      '浪漫': '追求美好和爱情，守护珍贵之物',
     };
     return pathDescriptions[this.profile.path] || '未知路径';
   }
@@ -274,7 +275,8 @@ ${memory.ltm_context}
       '复仇': '为过去的伤害寻求报复和正义',
       '救赎': '寻求原谅和解脱，弥补过去错误',
       '探索': '渴望发现未知，探索新的可能',
-      '统治': '渴望控制和支配，建立秩序'
+      '统治': '渴望控制和支配，建立秩序',
+      '守护': '守护珍视之物，不惜一切代价',
     };
     return driveDescriptions[this.profile.primeDrive] || '未知驱动';
   }

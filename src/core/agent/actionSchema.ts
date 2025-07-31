@@ -19,7 +19,9 @@ export const actionSchema = {
         'SPECIAL',
         'INSPECT',
         'TRADE',
-        'GIFT'
+        'GIFT',
+        'WORLD_EVENT',
+        'ENVIRONMENT_CHANGE'
       ]
     },
     targetCity: { type: 'string' },
@@ -40,7 +42,13 @@ export const actionSchema = {
     resources: { type: 'object' },
     offer: { type: 'object' },
     request: { type: 'object' },
-    message: { type: 'string' }
+    message: { type: 'string' },
+    eventId: { type: 'string' },
+    eventName: { type: 'string' },
+    description: { type: 'string' },
+    severity: { type: 'string' },
+    changeType: { type: 'string' },
+    magnitude: { type: 'number' }
   },
   required: ['type']
 };

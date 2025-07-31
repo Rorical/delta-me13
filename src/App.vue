@@ -249,5 +249,20 @@ onMounted(() => {
   .main-content {
     padding: 10px;
   }
+  
+  .sci-fi-container {
+    height: auto;
+    min-height: 100vh;
+  }
+  
+  .main-app {
+    height: auto;
+    min-height: 100vh;
+  }
+  
+  .bottom-section {
+    flex: 1;
+    min-height: 0;
+  }
 }
 </style>

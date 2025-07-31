@@ -1379,21 +1379,294 @@ onUnmounted(() => {
     padding: 10px;
   }
   
+  .dashboard-container {
+    gap: 12px;
+  }
+  
   .metric-card {
-    padding: 15px;
-    min-height: 250px;
+    padding: 12px;
+    min-height: 200px;
   }
   
   .system-header {
-    padding: 15px;
+    padding: 12px;
+    margin-bottom: 20px;
   }
   
   .system-header h1 {
-    font-size: 22px;
+    font-size: 20px;
+  }
+  
+  .header-subtitle {
+    font-size: 12px;
   }
   
   .logs-panel .logs-container {
-    max-height: 200px;
+    max-height: 180px;
+  }
+  
+  /* 手机端日志优化 */
+  .logs-container {
+    padding: 8px;
+    gap: 6px;
+  }
+  
+  .log-entry {
+    padding: 8px;
+    gap: 8px;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .log-day {
+    font-size: 10px;
+    min-width: 60px;
+    padding: 2px 4px;
+    align-self: flex-start;
+  }
+  
+  .log-message {
+    font-size: 11px;
+    line-height: 1.3;
+    width: 100%;
+    word-break: break-word;
+  }
+  
+  .log-importance {
+    font-size: 8px;
+    padding: 1px 3px;
+    align-self: flex-end;
+    margin-top: 3px;
+  }
+  
+  /* 手机端日志控制按钮优化 */
+  .logs-controls {
+    gap: 4px;
+  }
+  
+  .logs-filter {
+    padding: 2px 4px;
+    font-size: 10px;
+  }
+  
+  .logs-control-btn {
+    padding: 4px 8px;
+    font-size: 12px;
+  }
+  
+  /* 手机端全屏日志优化 */
+  .logs-fullscreen {
+    padding: 8px !important;
+  }
+  
+  .logs-fullscreen .log-entry {
+    padding: 10px;
+    margin-bottom: 4px;
+  }
+  
+  .logs-fullscreen .log-day {
+    font-size: 11px;
+    min-width: 70px;
+  }
+  
+  .logs-fullscreen .log-message {
+    font-size: 12px;
+    line-height: 1.4;
+  }
+  
+  .logs-fullscreen .logs-stats {
+    padding: 8px 12px !important;
+    font-size: 11px;
+  }
+  
+  /* 手机端AI日志优化 */
+  .ai-log-entry {
+    padding: 8px;
+  }
+  
+  .ai-log-main {
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  
+  .ai-agent-name {
+    font-size: 11px;
+  }
+  
+  .ai-model-name {
+    font-size: 10px;
+    padding: 1px 3px;
+  }
+  
+  .ai-duration {
+    font-size: 9px;
+    padding: 1px 3px;
+    min-width: 45px;
+  }
+  
+  .ai-log-details {
+    padding: 4px;
+    gap: 3px;
+  }
+  
+  .ai-token-usage {
+    font-size: 9px;
+  }
+  
+  .ai-prompt-preview,
+  .ai-response-preview {
+    font-size: 9px;
+    padding: 2px 3px;
+    max-height: 40px;
+  }
+  
+  .ai-logs-stats {
+    padding: 8px 10px;
+    font-size: 10px;
+    gap: 8px;
+  }
+  
+  /* 手机端卡片头部优化 */
+  .card-header {
+    margin-bottom: 12px;
+  }
+  
+  .card-header h3 {
+    font-size: 14px;
+  }
+  
+  /* 手机端滚动条优化 */
+  .logs-container::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+  
+  .logs-container::-webkit-scrollbar-thumb {
+    border-radius: 2px;
+  }
+  
+  /* 手机端空状态优化 */
+  .empty-state {
+    padding: 25px 12px;
+    font-size: 11px;
+  }
+  
+  /* 手机端控制面板优化 */
+  .control-content {
+    gap: 15px;
+  }
+  
+  .connection-status {
+    padding: 12px;
+    gap: 12px;
+  }
+  
+  .status-title {
+    font-size: 13px;
+  }
+  
+  .status-subtitle {
+    font-size: 11px;
+  }
+  
+  /* 手机端世界状态优化 */
+  .world-metrics {
+    gap: 8px;
+  }
+  
+  .metric-item {
+    padding: 12px;
+  }
+  
+  .metric-label {
+    font-size: 11px;
+    margin-bottom: 6px;
+  }
+  
+  .metric-value {
+    font-size: 20px;
+  }
+  
+  .metric-unit {
+    font-size: 9px;
+  }
+  
+  /* 手机端城市卡片优化 */
+  .city-card {
+    padding: 12px;
+    gap: 10px;
+  }
+  
+  .city-header strong {
+    font-size: 14px;
+  }
+  
+  .city-type {
+    font-size: 10px;
+    padding: 3px 6px;
+  }
+  
+  .city-stat-item {
+    padding: 4px 6px;
+  }
+  
+  .city-stat-item .stat-label {
+    font-size: 10px;
+  }
+  
+  .city-stat-item .stat-value {
+    font-size: 11px;
+  }
+  
+  .resources-title {
+    font-size: 11px;
+    margin-bottom: 4px;
+  }
+  
+  .resource-item {
+    font-size: 9px;
+    padding: 2px 4px;
+  }
+  
+  /* 手机端代理卡片优化 */
+  .agent-card {
+    padding: 12px;
+  }
+  
+  .agent-name {
+    font-size: 13px;
+  }
+  
+  .agent-type {
+    font-size: 9px;
+    padding: 3px 6px;
+  }
+  
+  .stat-item {
+    font-size: 11px;
+  }
+  
+  .inventory-label {
+    font-size: 11px;
+    margin-bottom: 4px;
+  }
+  
+  .inventory-item {
+    font-size: 9px;
+    padding: 2px 4px;
+  }
+  
+  /* 手机端黑潮监控优化 */
+  .corruption-item {
+    padding: 10px;
+  }
+  
+  .corruption-area {
+    font-size: 13px;
+  }
+  
+  .corruption-level {
+    font-size: 13px;
   }
 }
 

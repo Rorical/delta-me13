@@ -2,6 +2,7 @@ import { EnvironmentAgent } from './agent/environment';
 import { TitanAgent } from './agent/titan';
 import { NpcAgent } from './agent/npc';
 import { GoldenHeirAgent } from './agent/goldenHeir';
+import { WorldAgent } from './agent/worldAgent';
 import { getAllGoldenHeirProfiles } from './agent/goldenHeirProfiles';
 import { getAgentStartingLocation, getGoldenHeirLocation } from './config/locationConfig';
 import { generateRandomNPCs } from './config/npcSeeds';
@@ -65,7 +66,8 @@ export class OmphalosSimulation {
     console.log(`  ⚔️  逐火十二英雄: ${goldenHeirs.length} (黄金裔)`);
     console.log(`  ⚡ 泰坦守护者: ${allTitans.length} (火种守护)`);
     console.log(`  👥 城邦居民: ${2 + randomNPCs.length} (${2} 基础 + ${randomNPCs.length} 随机)`);
-    console.log(`  🌍 总电信号数: ${this.agents.length}`);
+    console.log(`  🌍 世界意志: 1 (世界事件管理)`);
+    console.log(`  🌍 总电信号数: ${this.agents.length + 1}`);
 
     // Create initial Omphalos world state
     const initialWorldState = createInitialOmphalosWorld();
@@ -157,7 +159,11 @@ export class OmphalosSimulation {
     // 增强世界状态
     const enhancedWorldState = enhanceOmphalosWorld(initialWorldState);
 
-    this.environment = new EnvironmentAgent(enhancedWorldState, (state: OmphalosWorldState) => this.handleUpdate(state));
+    // Create World Agent with the actual world state
+    const worldAgent = new WorldAgent('world_agent', '世界意志', client, enhancedWorldState, agentConfig);
+    this.agents.push(worldAgent);
+
+    this.environment = new EnvironmentAgent(enhancedWorldState, (state: OmphalosWorldState) => this.handleUpdate(state), client);
     
     // 设置代理日志回调
     this.environment.setupAgentLogging(this.agents);

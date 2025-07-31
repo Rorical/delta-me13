@@ -29,7 +29,11 @@ export type Action =
   
   // --- Special & Abilities ---
   | { type: 'USE_ABILITY'; abilityName: string; targetId?: string; payload?: any }
-  | { type: 'SPECIAL'; name: string; payload: any }; // Legacy/flexible special action
+  | { type: 'SPECIAL'; name: string; payload: any } // Legacy/flexible special action
+  
+  // --- World Events ---
+  | { type: 'WORLD_EVENT'; target: string; parameters: { eventId: string; eventName: string; description: string; severity: string } }
+  | { type: 'ENVIRONMENT_CHANGE'; target: string; parameters: { changeType: string; magnitude: number; description: string } };
 
 export interface AICallLog {
   timestamp: number;

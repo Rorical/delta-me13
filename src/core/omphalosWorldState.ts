@@ -290,7 +290,7 @@ export interface WorldEvent {
 }
 
 export interface EventEffect {
-  type: 'stat_change' | 'resource_change' | 'relationship_change' | 'new_ability' | 'corruption_spread';
+  type: 'stat_change' | 'resource_change' | 'relationship_change' | 'new_ability' | 'corruption_spread' | 'reality_shift' | 'memory_alteration' | 'magic_level' | 'fate_intervention';
   target: string;                   // 目标代理或区域
   magnitude: number;
   description: string;
