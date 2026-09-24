@@ -35,6 +35,12 @@ export class WorldEngine {
 
   constructor(public state: OmphalosWorldState, private notify: Listener = () => {}) {}
 
+  // 从存档恢复后，让日志 / 消息编号接着已有的继续
+  syncSequences() {
+    this.logSeq = this.state.logs.reduce((m, l) => Math.max(m, l.id), 0);
+    this.msgSeq = this.state.messages.reduce((m, x) => Math.max(m, x.id), 0);
+  }
+
   // ---------- 查询 ----------
   agent(id: string): AgentStatus | undefined {
     return this.state.agents[id];

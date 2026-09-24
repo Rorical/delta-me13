@@ -1,5 +1,5 @@
 import { WorldEngine, type EraOutcome } from './engine';
-import { AgentMemory } from './agent/memory';
+import { AgentMemory, type MemoryData } from './agent/memory';
 import { LLMGateway, mapLimit, type LLMConfig } from './llm';
 import type { ProviderAdapter } from './providers';
 import { buildSystemPrompt, buildUserPrompt } from './agent/prompts';
@@ -28,6 +28,17 @@ export const DEFAULT_SIM_CONFIG: SimConfig = {
 
 export type SimStatus = 'idle' | 'running' | 'paused' | 'stopping' | 'ended';
 
+// 本地存档：每天结束时保存，刷新页面后恢复
+export const SNAPSHOT_VERSION = 1;
+
+export interface SimSnapshot {
+  version: number;
+  savedAt: number;
+  state: OmphalosWorldState;
+  memories: Record<string, MemoryData>;
+  npcSeeds: NPCSeed[];
+}
+
 export interface SimProgress {
   phase: string;
   done: number;
@@ -53,6 +64,8 @@ export class OmphalosSimulation {
   private listeners = new Set<() => void>();
   private pauseRequested = false;
   private pendingEraEnd?: { outcome: EraOutcome; reason: string };
+  /** 世界处于一致状态（每天结束、重置）时调用，用于存档 */
+  onCheckpoint?: () => void;
 
   constructor(config: Partial<SimConfig> = {}) {
     this.config = { ...DEFAULT_SIM_CONFIG, ...config };
@@ -147,6 +160,30 @@ export class OmphalosSimulation {
     this.lastError = '';
     this.setPhase('待机');
     this.engine.log('system', '世界已重置。', 'critical');
+    this.onCheckpoint?.();
+  }
+
+  // ---------- 存档 ----------
+  snapshot(): SimSnapshot {
+    const memories: Record<string, MemoryData> = {};
+    this.memories.forEach((m, id) => { memories[id] = m.toJSON(); });
+    return { version: SNAPSHOT_VERSION, savedAt: Date.now(), state: this.state, memories, npcSeeds: this.npcSeeds };
+  }
+
+  restore(snap: SimSnapshot): boolean {
+    if (this.status === 'running' || this.status === 'stopping') return false;
+    const st = snap?.state;
+    if (snap?.version !== SNAPSHOT_VERSION || !st?.agents || !st.cities || !st.embers || !st.phase || !st.imprint) return false;
+    this.engine.state = st;
+    this.engine.syncSequences();
+    this.npcSeeds = Array.isArray(snap.npcSeeds) ? snap.npcSeeds : this.npcSeeds;
+    this.memories = new Map(Object.entries(snap.memories ?? {}).map(([id, d]) => [id, AgentMemory.from(d)]));
+    this.systemPrompts.clear();
+    this.pendingEraEnd = undefined;
+    this.lastError = '';
+    this.status = st.phase === 'ended' ? 'ended' : st.day > 0 ? 'paused' : 'idle';
+    this.setPhase(st.day > 0 ? `已从存档恢复（第${st.era}纪元第${st.day}天）` : '待机');
+    return true;
   }
 
   private async loop(days: number) {
@@ -254,6 +291,7 @@ export class OmphalosSimulation {
     await mapLimit([...this.memories.entries()], this.config.concurrency, ([id, mem]) =>
       mem.compact(text => gw.summarize(id, s.day, text)).catch(() => {}), this.abort?.signal);
     this.setPhase('本日完成');
+    this.onCheckpoint?.();
   }
 
   private async decideAll(

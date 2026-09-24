@@ -3,8 +3,13 @@
 //   - OpenAI Chat Completions（以及所有 OpenAI 兼容端点）
 //   - Anthropic Messages API（浏览器直连，自适应思考）
 //   - DeepSeek V4（思考模式 thinking + reasoning_effort）
-import OpenAI from 'openai';
-import Anthropic from '@anthropic-ai/sdk';
+import type OpenAI from 'openai';
+import type Anthropic from '@anthropic-ai/sdk';
+
+// SDK 按需加载：首次请求时才下载对应协议的客户端，减小首屏体积
+function openAIClient(s: ProviderSettings): Promise<OpenAI> {
+  return import('openai').then(m => new m.default({ apiKey: s.apiKey, baseURL: s.endpoint, dangerouslyAllowBrowser: true }));
+}
 
 export type ProviderKind = 'openai-responses' | 'openai-chat' | 'anthropic' | 'deepseek';
 export type ReasoningLevel = 'off' | 'low' | 'medium' | 'high' | 'max';
@@ -134,10 +139,12 @@ function requestOptions(req: CompletionRequest) {
 // ---------------- OpenAI Chat Completions（及兼容端点） ----------------
 class OpenAIChatAdapter implements ProviderAdapter {
   readonly kind: ProviderKind = 'openai-chat';
-  protected client: OpenAI;
+  private sdk?: Promise<OpenAI>;
 
-  constructor(protected s: ProviderSettings) {
-    this.client = new OpenAI({ apiKey: s.apiKey, baseURL: s.endpoint, dangerouslyAllowBrowser: true });
+  constructor(protected s: ProviderSettings) {}
+
+  protected get client(): Promise<OpenAI> {
+    return this.sdk ??= openAIClient(this.s);
   }
 
   get model() { return this.s.model; }
@@ -167,7 +174,7 @@ class OpenAIChatAdapter implements ProviderAdapter {
       body.tools = [{ type: 'function', function: { name: req.tool.name, description: req.tool.description, parameters: req.tool.schema } }];
       body.tool_choice = this.toolChoice(req.tool);
     }
-    const res = await this.client.chat.completions.create(body as never, requestOptions(req)) as OpenAI.Chat.Completions.ChatCompletion;
+    const res = await (await this.client).chat.completions.create(body as never, requestOptions(req)) as OpenAI.Chat.Completions.ChatCompletion;
     const msg = res.choices[0]?.message as (OpenAI.Chat.Completions.ChatCompletionMessage & { reasoning_content?: string; reasoning?: string }) | undefined;
     const call = msg?.tool_calls?.find(c => c.type === 'function');
     return {
@@ -182,7 +189,7 @@ class OpenAIChatAdapter implements ProviderAdapter {
 
   async listModels(signal?: AbortSignal): Promise<string[]> {
     const ids: string[] = [];
-    for await (const m of this.client.models.list({ signal })) ids.push(m.id);
+    for await (const m of (await this.client).models.list({ signal })) ids.push(m.id);
     return ids.sort();
   }
 }
@@ -208,10 +215,12 @@ class DeepSeekAdapter extends OpenAIChatAdapter {
 // ---------------- OpenAI Responses API ----------------
 class OpenAIResponsesAdapter implements ProviderAdapter {
   readonly kind: ProviderKind = 'openai-responses';
-  private client: OpenAI;
+  private sdk?: Promise<OpenAI>;
 
-  constructor(private s: ProviderSettings) {
-    this.client = new OpenAI({ apiKey: s.apiKey, baseURL: s.endpoint, dangerouslyAllowBrowser: true });
+  constructor(private s: ProviderSettings) {}
+
+  private get client(): Promise<OpenAI> {
+    return this.sdk ??= openAIClient(this.s);
   }
 
   get model() { return this.s.model; }
@@ -233,7 +242,7 @@ class OpenAIResponsesAdapter implements ProviderAdapter {
       body.tools = [{ type: 'function', name: req.tool.name, description: req.tool.description, parameters: req.tool.schema, strict: false }];
       body.tool_choice = { type: 'function', name: req.tool.name };
     }
-    const res = await this.client.responses.create(body as never, requestOptions(req)) as OpenAI.Responses.Response;
+    const res = await (await this.client).responses.create(body as never, requestOptions(req)) as OpenAI.Responses.Response;
     let toolArgs: string | undefined;
     const text: string[] = [];
     const reasoning: string[] = [];
@@ -261,7 +270,7 @@ class OpenAIResponsesAdapter implements ProviderAdapter {
 
   async listModels(signal?: AbortSignal): Promise<string[]> {
     const ids: string[] = [];
-    for await (const m of this.client.models.list({ signal })) ids.push(m.id);
+    for await (const m of (await this.client).models.list({ signal })) ids.push(m.id);
     return ids.sort();
   }
 }
@@ -284,11 +293,15 @@ const BUDGET: Record<ReasoningLevel, number> = { off: 0, low: 1024, medium: 4096
 
 class AnthropicAdapter implements ProviderAdapter {
   readonly kind: ProviderKind = 'anthropic';
-  private client: Anthropic;
+  private sdk?: Promise<Anthropic>;
   private official: boolean;
 
+  private get client(): Promise<Anthropic> {
+    return this.sdk ??= import('@anthropic-ai/sdk')
+      .then(m => new m.default({ apiKey: this.s.apiKey, baseURL: this.s.endpoint, dangerouslyAllowBrowser: true }));
+  }
+
   constructor(private s: ProviderSettings) {
-    this.client = new Anthropic({ apiKey: s.apiKey, baseURL: s.endpoint, dangerouslyAllowBrowser: true });
     this.official = /(^|\/\/)api\.anthropic\.com/.test(s.endpoint);
   }
 
@@ -322,8 +335,8 @@ class AnthropicAdapter implements ProviderAdapter {
 
     const useFallback = this.official && supportsServerFallback(this.s.model);
     const res = (useFallback
-      ? await this.client.beta.messages.create({ ...body, betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default' } as never, requestOptions(req))
-      : await this.client.messages.create(body as never, requestOptions(req))) as Anthropic.Message;
+      ? await (await this.client).beta.messages.create({ ...body, betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default' } as never, requestOptions(req))
+      : await (await this.client).messages.create(body as never, requestOptions(req))) as Anthropic.Message;
 
     const usage = res.usage;
     const inputTokens = (usage?.input_tokens ?? 0) + (usage?.cache_read_input_tokens ?? 0) + (usage?.cache_creation_input_tokens ?? 0);
@@ -345,7 +358,7 @@ class AnthropicAdapter implements ProviderAdapter {
 
   async listModels(signal?: AbortSignal): Promise<string[]> {
     const ids: string[] = [];
-    for await (const m of this.client.models.list({}, { signal })) ids.push(m.id);
+    for await (const m of (await this.client).models.list({}, { signal })) ids.push(m.id);
     return ids;
   }
 }

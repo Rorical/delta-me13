@@ -49,7 +49,10 @@ export class LLMGateway {
     private config: LLMConfig,
     private stats: () => AIStats,
     private signal?: AbortSignal
-  ) {}
+  ) {
+    // 重新连接或从存档恢复后，调用记录的编号接着已有的继续
+    this.seq = stats().recent.reduce((m, r) => Math.max(m, r.id), 0);
+  }
 
   setSignal(signal?: AbortSignal) {
     this.signal = signal;

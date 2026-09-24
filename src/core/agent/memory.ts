@@ -5,6 +5,11 @@ export interface MemoryEntry {
   text: string;
 }
 
+export interface MemoryData {
+  entries: MemoryEntry[];
+  summary: string;
+}
+
 export type Summarizer = (text: string) => Promise<string>;
 
 const KEEP_RECENT = 14;
@@ -47,6 +52,17 @@ export class AgentMemory {
     } finally {
       this.compacting = false;
     }
+  }
+
+  toJSON(): MemoryData {
+    return { entries: this.entries, summary: this.summary };
+  }
+
+  static from(data: MemoryData): AgentMemory {
+    const m = new AgentMemory();
+    m.entries = Array.isArray(data?.entries) ? data.entries : [];
+    m.summary = typeof data?.summary === 'string' ? data.summary : '';
+    return m;
   }
 
   // 纪元轮回：只留下一丝模糊的印象

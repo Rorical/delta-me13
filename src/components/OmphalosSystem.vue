@@ -36,11 +36,12 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, defineAsyncComponent, onMounted, ref } from 'vue';
 import { Activity, Cpu, Flame, Info, Maximize2, Waves } from 'lucide-vue-next';
 import { useOpenAIStore } from '../stores/openAIStore';
 import { returnedEmberCount } from '../core/omphalosWorldState';
-import SimWorkspace from './sim/SimWorkspace.vue';
+// 工作台按需加载，不拖慢档案首屏
+const SimWorkspace = defineAsyncComponent(() => import('./sim/SimWorkspace.vue'));
 import { getSimulation, useSimTick } from './sim/useSimulation';
 import './sim/sim.css';
 

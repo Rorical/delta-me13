@@ -48,7 +48,7 @@
       <label>每日间隔 <input type="range" min="0" max="5000" step="250" v-model.number="cfg.dayDelayMs" /> <b>{{ (cfg.dayDelayMs / 1000).toFixed(2) }}s</b></label>
       <label>居民数量 <input type="range" min="0" max="20" v-model.number="cfg.npcCount" /> <b>{{ cfg.npcCount }}</b></label>
       <label class="check"><input type="checkbox" v-model="cfg.replyPhase" /> 被搭话者当日回应（对话更生动，调用更多）</label>
-      <p class="om-muted hint">每天约 {{ estimatedCalls }} 次模型调用；居民数量在重置后生效。</p>
+      <p class="om-muted hint">每天约 {{ estimatedCalls }} 次模型调用；居民数量在重置后生效。世界在每天结束时自动存档于本机浏览器，刷新页面后可继续。</p>
     </section>
 
     <!-- 主体：名册 | 地图 + 日志 | 详情 -->
@@ -228,6 +228,7 @@ const ensureConnected = (): boolean => {
 const start = () => { if (ensureConnected()) void sim.start(); };
 const step = () => { if (ensureConnected()) void sim.step(); };
 const reset = () => {
+  if (sim.state.totalDays > 0 && !window.confirm('重置会清除当前世界及其本地存档，确定吗？')) return;
   sim.reset();
   selectedAgent.value = '';
 };

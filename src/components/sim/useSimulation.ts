@@ -1,8 +1,9 @@
 import { markRaw, onMounted, onUnmounted, ref, type Component } from 'vue';
 import { Crown, Skull, Sparkles, User } from 'lucide-vue-next';
-import { OmphalosSimulation, DEFAULT_SIM_CONFIG, type SimConfig } from '../../core/llmSimulation';
+import { OmphalosSimulation, DEFAULT_SIM_CONFIG, type SimConfig, type SimSnapshot } from '../../core/llmSimulation';
 
 const CONFIG_KEY = 'omphalos-sim-config';
+const WORLD_KEY = 'omphalos-world';
 
 function loadConfig(): SimConfig {
   try {
@@ -21,8 +22,45 @@ export function saveSimConfig(config: SimConfig) {
 let instance: OmphalosSimulation | null = null;
 
 export function getSimulation(): OmphalosSimulation {
-  if (!instance) instance = markRaw(new OmphalosSimulation(loadConfig()));
+  if (!instance) {
+    const sim = markRaw(new OmphalosSimulation(loadConfig()));
+    const snap = loadWorld();
+    if (snap && !sim.restore(snap)) clearWorld();
+    sim.onCheckpoint = () => saveWorld(sim);
+    instance = sim;
+  }
   return instance;
+}
+
+// ---------- 世界存档（仅保存在本机浏览器） ----------
+function loadWorld(): SimSnapshot | null {
+  try {
+    const raw = localStorage.getItem(WORLD_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function clearWorld() {
+  try { localStorage.removeItem(WORLD_KEY); } catch { /* 忽略 */ }
+}
+
+function saveWorld(sim: OmphalosSimulation) {
+  const snap = sim.snapshot();
+  try {
+    localStorage.setItem(WORLD_KEY, JSON.stringify(snap));
+  } catch {
+    // 超出存储配额：丢弃思考内容与较早的日志后重试
+    try {
+      const s = snap.state;
+      const slim = {
+        ...snap,
+        state: { ...s, logs: s.logs.slice(-300), messages: s.messages.slice(-120), ai: { ...s.ai, recent: s.ai.recent.map(r => ({ ...r, reasoning: undefined })) } }
+      };
+      localStorage.setItem(WORLD_KEY, JSON.stringify(slim));
+    } catch { /* 放弃本次存档 */ }
+  }
 }
 
 export function useSimTick(sim: OmphalosSimulation, intervalMs = 150) {
