@@ -1,225 +1,108 @@
-import { GoldenHeirProfile } from './goldenHeir';
-
-// 黄金裔分布信息
-export interface GoldenHeirLocation {
-  goldenHeirName: string;
-  currentLocation: string;
-  alternativeLocations?: string[];  // 其他可能出现的地点
-  associatedCities?: string[];      // 相关城邦
+// 逐火十二英雄 —— 每位黄金裔继承一位泰坦的神权，其目标是取得对应的火种。
+export interface GoldenHeirProfile {
+  id: string;
+  codename: string;
+  trueName: string;
+  path: string;
+  primeDrive: string;         // 原动力
+  titanTarget: string;        // 目标泰坦 id
+  home: string;               // 出发城邦
+  personality: string;
+  backstory: string;
+  speech: string;             // 说话风格
+  hp: number;
+  power: number;
+  defense: number;
+  inventory: Record<string, number>;
 }
 
-export const GOLDEN_HEIR_LOCATIONS: GoldenHeirLocation[] = [
+export const GOLDEN_HEIRS: GoldenHeirProfile[] = [
   {
-    goldenHeirName: '白厄',
-    currentLocation: 'aiimi-grove',
-    associatedCities: ['aiimi-grove']
+    id: 'phainon', codename: 'NeiKos496', trueName: '白厄', path: '负世', primeDrive: '憎恨', titanTarget: 'kephale', home: '哀丽秘榭',
+    personality: '开朗热血，总把“救世”挂在嘴边，内心却背负着故乡被毁的仇恨。',
+    backstory: '来自哀丽秘榭的少年，立誓继承负世的火种，托起整个世界。',
+    speech: '直率、带着少年意气，偶尔流露出沉重。',
+    hp: 140, power: 28, defense: 10, inventory: { food: 5, materials: 2 }
   },
   {
-    goldenHeirName: '昔涟', 
-    currentLocation: 'aiimi-grove',
-    associatedCities: ['aiimi-grove']
+    id: 'cyrene', codename: 'PhiLia093', trueName: '昔涟', path: '岁月', primeDrive: '平和', titanTarget: 'oronyx', home: '哀丽秘榭',
+    personality: '温柔、爱笑，像一首轻快的诗。看似无忧无虑，却记得许多别人忘掉的事。',
+    backstory: '白厄的青梅竹马，与岁月有着不可思议的联系。',
+    speech: '轻柔俏皮，喜欢用比喻和小诗句。',
+    hp: 110, power: 20, defense: 8, inventory: { food: 6, mana: 3 }
   },
   {
-    goldenHeirName: '赛飞儿',
-    currentLocation: 'dolos',
-    associatedCities: ['dolos']
+    id: 'aglaea', codename: 'Aglaea', trueName: '阿格莱雅', path: '浪漫', primeDrive: '守护', titanTarget: 'mnestia', home: '奥赫玛',
+    personality: '优雅、克制而威严，奥赫玛的领袖。以金丝洞察人心，对同伴极为护短。',
+    backstory: '奥赫玛逐火之旅的发起者，以浪漫的神权编织金丝。',
+    speech: '从容、典雅，言辞精准，带着命令的分量。',
+    hp: 120, power: 24, defense: 10, inventory: { food: 4, materials: 4, mana: 2 }
   },
   {
-    goldenHeirName: '遐蝶',
-    currentLocation: 'ailidiea',
-    associatedCities: ['ailidiea']
+    id: 'tribbie', codename: 'Tribbie', trueName: '缇宝', path: '门径', primeDrive: '探索', titanTarget: 'janus', home: '奥赫玛',
+    personality: '天真好奇的神谕少女（其实有三个她），总在跑来跑去收集线索。',
+    backstory: '雅努斯的圣女，能开辟通往各处的门径。',
+    speech: '活泼可爱，偶尔三人抢着说话。',
+    hp: 100, power: 20, defense: 8, inventory: { food: 4, mana: 4 }
   },
   {
-    goldenHeirName: '思辨',
-    currentLocation: 'shenwu-court',
-    associatedCities: ['shenwu-court', 'edulia']
+    id: 'mydei', codename: 'Mydei', trueName: '万敌', path: '纷争', primeDrive: '野心', titanTarget: 'nikador', home: '悬锋城',
+    personality: '沉默、骄傲、极能忍痛，崇尚以力量证明一切。',
+    backstory: '悬锋城的王储，誓要亲手终结堕落的纷争泰坦。',
+    speech: '简短有力，不喜废话。',
+    hp: 170, power: 32, defense: 12, inventory: { food: 3, materials: 6 }
   },
   {
-    goldenHeirName: '阿格莱雅',
-    currentLocation: 'omphalos-heart',
-    associatedCities: ['omphalos-heart']
+    id: 'anaxa', codename: 'SkeMma720', trueName: '那刻夏', path: '理性', primeDrive: '批判', titanTarget: 'cerces', home: '神悟树庭',
+    personality: '尖锐、傲慢的学者，质疑一切神明与权威，只相信理性。',
+    backstory: '神悟树庭的异端教授，想弄清泰坦究竟是什么。',
+    speech: '辛辣、学术化，喜欢反问与讽刺。',
+    hp: 110, power: 26, defense: 8, inventory: { mana: 6, materials: 2 }
   },
   {
-    goldenHeirName: '缇宝',
-    currentLocation: 'omphalos-heart',
-    alternativeLocations: ['yanusapolis'],
-    associatedCities: ['omphalos-heart', 'yanusapolis']
+    id: 'castorice', codename: 'EpieiKeia216', trueName: '遐蝶', path: '死亡', primeDrive: '平和', titanTarget: 'thanatos', home: '哀地里亚',
+    personality: '安静、礼貌、温柔，因“死亡之触”不敢靠近他人，却深爱着生命。',
+    backstory: '来自冥土哀地里亚，触碰即会夺走生命的少女。',
+    speech: '轻声细语，礼貌而略带忧伤。',
+    hp: 120, power: 30, defense: 8, inventory: { food: 3, mana: 4 }
   },
   {
-    goldenHeirName: '风堇',
-    currentLocation: 'omphalos-heart',
-    alternativeLocations: ['dusk-garden'],
-    associatedCities: ['omphalos-heart', 'dusk-garden']
+    id: 'hyacine', codename: 'Hyacine', trueName: '风堇', path: '天空', primeDrive: '希望', titanTarget: 'aquila', home: '昏光庭院',
+    personality: '温暖开朗的医者，总想治好所有人，自己却常常忘了休息。',
+    backstory: '奥赫玛的治疗师，与天空有着隐秘的联系。',
+    speech: '亲切、关怀，常叮嘱别人注意身体。',
+    hp: 110, power: 18, defense: 9, inventory: { food: 5, mana: 3, 治疗药剂: 2 }
   },
   {
-    goldenHeirName: '刻律德菈',
-    currentLocation: 'omphalos-heart',
-    associatedCities: ['omphalos-heart']
+    id: 'cipher', codename: 'OreXis945', trueName: '赛飞儿', path: '诡计', primeDrive: '渴望', titanTarget: 'zagreus', home: '多洛斯',
+    personality: '机灵的神偷，嘴上贪财，心里有自己的底线。',
+    backstory: '多洛斯出身的怪盗，扎格列斯的宠儿。',
+    speech: '轻佻、爱开玩笑、讨价还价。',
+    hp: 110, power: 24, defense: 9, inventory: { food: 3, materials: 3, mana: 1 }
   },
   {
-    goldenHeirName: '万敌',
-    currentLocation: 'xuanfeng-city',
-    associatedCities: ['xuanfeng-city']
+    id: 'cerydra', codename: 'Cerydra', trueName: '刻律德菈', path: '律法', primeDrive: '统治', titanTarget: 'talanton', home: '黎明云崖',
+    personality: '冷静果决的统帅，信奉秩序与契约，为胜利可以付出一切。',
+    backstory: '奥赫玛的执政官，棋手般的战略家。',
+    speech: '冷峻、条理分明，像在下达军令。',
+    hp: 130, power: 26, defense: 11, inventory: { food: 4, materials: 4 }
   },
   {
-    goldenHeirName: '那刻夏',
-    currentLocation: 'shenwu-court',
-    associatedCities: ['shenwu-court']
+    id: 'hysilens', codename: 'Hysilens', trueName: '海瑟音', path: '海洋', primeDrive: '渴望', titanTarget: 'phagousa', home: '斯缇科西亚',
+    personality: '慵懒的歌者，歌声既能抚慰也能摧毁，漂泊无定。',
+    backstory: '与海洋相连的塞壬，徘徊于斯缇科西亚的冥河边。',
+    speech: '悠长、带着歌谣般的韵律。',
+    hp: 120, power: 26, defense: 9, inventory: { food: 3, mana: 4 }
   },
   {
-    goldenHeirName: '海瑟音',
-    currentLocation: 'stykoxia',
-    associatedCities: ['stykoxia']
-  }
-];
-
-// 已知的5个黄金裔配置
-export const KNOWN_GOLDEN_HEIRS: GoldenHeirProfile[] = [
-  {
-    codename: "NeiKos496",
-    trueName: "白厄",
-    path: "负世",
-    primeDrive: "憎恨",
-    titanTarget: "刻法勒",
-    personality: "冷酷而充满怨恨，但内心深处渴望理解。对世界的黑暗面有着超常的洞察力，能够看穿他人隐藏的痛苦和恶意。",
-    backstory: "曾经历过巨大的背叛和痛苦，因此选择了负世之路。白厄相信只有拥抱世界的黑暗面，才能真正理解存在的意义。",
-    specialAbilities: ["暗影感知", "痛苦共鸣", "憎恨增幅", "负面情绪操控"]
-  },
-  {
-    codename: "PhiLia093", 
-    trueName: "昔涟",
-    path: "岁月",
-    primeDrive: "平和",
-    titanTarget: "欧洛尼斯",
-    personality: "温和而睿智，拥有超越年龄的成熟。能够以长远的眼光看待问题，不轻易被短期的得失困扰。",
-    backstory: "天生具有感知时间流逝的能力，见证了无数兴衰起伏。昔涟深知万物皆有定时，追求在变迁中寻找永恒的平衡。",
-    specialAbilities: ["时间感知", "历史回溯", "预见未来", "岁月沉淀"]
-  },
-  {
-    codename: "OreXis945",
-    trueName: "赛飞儿", 
-    path: "诡计",
-    primeDrive: "渴望",
-    titanTarget: "扎格列斯",
-    personality: "机智狡黠，充满魅力但难以捉摸。善于利用他人的弱点，总能在复杂的局势中找到对自己有利的角度。",
-    backstory: "从小在诡谲的环境中长大，学会了用智慧和诡计生存。赛飞儿渴望获得真正的力量，不再需要依赖他人。",
-    specialAbilities: ["诡计策划", "魅惑诱导", "陷阱制作", "机会洞察"]
-  },
-  {
-    codename: "EpieiKeia216",
-    trueName: "遐蝶",
-    path: "死亡", 
-    primeDrive: "平和",
-    titanTarget: "塞纳托斯",
-    personality: "超然物外，对生死有着深刻的理解。不恐惧死亡，也不过分执着于生命，追求在生与死之间找到真正的平静。",
-    backstory: "掌管死亡的女神，她双手的触碰可以带走生命。遐蝶相信死亡是另一种形式的解脱和新生。",
-    specialAbilities: ["死亡感知", "灵魂指引", "生死平衡", "安息赐予"]
-  },
-  {
-    codename: "SkeMma720",
-    trueName: "那刻夏",
-    path: "理性",
-    primeDrive: "批判", 
-    titanTarget: "瑟希斯",
-    personality: "逻辑严密，思维敏锐，对一切事物都抱有批判性的态度。不轻信任何观点，坚持用理性分析一切问题。",
-    backstory: "天生的哲学家和思想家，从小就对世界的本质抱有强烈的好奇心。思辨相信只有通过不断的质疑和批判，才能接近真理。",
-    specialAbilities: ["逻辑推演", "谬误识别", "理性分析", "批判思维"]
-  }
-];
-
-// 剩余7个黄金裔的基础配置（待完善）
-export const ADDITIONAL_GOLDEN_HEIRS: Partial<GoldenHeirProfile>[] = [
-  {
-    codename: "ForTis777",
-    trueName: "万敌",
-    path: "力量",
-    primeDrive: "野心",
-    titanTarget: "尼卡多利" // 天谴之矛
-  },
-  {
-    codename: "SophiA444", 
-    trueName: "提宝",
-    path: "智慧",
-    primeDrive: "探索",
-    titanTarget: "雅努斯" // 万径之门
-  },
-  {
-    codename: "JustiS333",
-    trueName: "刻律德菈", 
-    path: "正义",
-    primeDrive: "保护",
-    titanTarget: "塔兰顿" // 公正之秤
-  },
-  {
-    codename: "Sky666",
-    trueName: "海瑟音",
-    path: "混沌",
-    primeDrive: "希望",
-    titanTarget: "艾格勒"
-  },
-  {
-    codename: "OrdO111",
-    trueName: "大地兽",
-    path: "秩序",
-    primeDrive: "统治", 
-    titanTarget: "吉奥里亚" // 磐岩之脊
-  },
-  {
-    codename: "CreA888",
-    trueName: "海瑟音",
-    path: "创造",
-    primeDrive: "希望",
-    titanTarget: "法吉娜" // 满溢之杯
-  },
-  {
-    codename: "DesTroy999",
-    trueName: "阿格莱亚",
-    path: "浪漫", 
-    primeDrive: "守护",
-    titanTarget: "墨涅塔" // 黄金之茧
+    id: 'danheng', codename: 'Permansor Terrae', trueName: '丹恒·腾荒', path: '大地', primeDrive: '守护', titanTarget: 'georios', home: '奥赫玛',
+    personality: '沉稳寡言的守护者，重承诺，默默挡在同伴身前。',
+    backstory: '承接大地神权的外来者，以盾守护翁法罗斯。',
+    speech: '简练、冷静、可靠。',
+    hp: 160, power: 24, defense: 14, inventory: { food: 4, materials: 5 }
   }
 ];
 
 export function getAllGoldenHeirProfiles(): GoldenHeirProfile[] {
-  // 将已知的完整配置与待完善的配置合并
-  const completeAdditional: GoldenHeirProfile[] = ADDITIONAL_GOLDEN_HEIRS.map(partial => ({
-    codename: partial.codename || "Unknown",
-    trueName: partial.trueName || "未命名",
-    path: partial.path || "力量",
-    primeDrive: partial.primeDrive || "希望", 
-    titanTarget: partial.titanTarget,
-    personality: partial.personality || "待定义的性格特征",
-    backstory: partial.backstory || "待完善的背景故事",
-    specialAbilities: partial.specialAbilities || ["待定义能力"]
-  }));
-
-  return [...KNOWN_GOLDEN_HEIRS, ...completeAdditional];
-}
-
-// 根据真名查找黄金裔位置
-export function getGoldenHeirLocation(trueName: string): GoldenHeirLocation | null {
-  return GOLDEN_HEIR_LOCATIONS.find(location => location.goldenHeirName === trueName) || null;
-}
-
-// 根据位置查找该地的黄金裔
-export function getGoldenHeirsAtLocation(locationId: string): GoldenHeirLocation[] {
-  return GOLDEN_HEIR_LOCATIONS.filter(location => 
-    location.currentLocation === locationId || 
-    location.alternativeLocations?.includes(locationId) ||
-    location.associatedCities?.includes(locationId)
-  );
-}
-
-// 获取已知黄金裔的代号到真名映射
-export function getKnownGoldenHeirNameMapping(): Record<string, string> {
-  const mapping: Record<string, string> = {};
-  KNOWN_GOLDEN_HEIRS.forEach(heir => {
-    mapping[heir.codename] = heir.trueName;
-  });
-  ADDITIONAL_GOLDEN_HEIRS.forEach(heir => {
-    if (heir.codename && heir.trueName) {
-      mapping[heir.codename] = heir.trueName;
-    }
-  });
-  return mapping;
+  return GOLDEN_HEIRS;
 }

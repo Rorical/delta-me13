@@ -22,7 +22,7 @@
               v-model="settings.openaiEndpoint" 
               type="text" 
               placeholder="https://api.openai.com/v1"
-              @input="saveSettings"
+              @input="scheduleSave"
             />
             <div class="input-glow"></div>
           </div>
@@ -35,7 +35,7 @@
               v-model="settings.apiKey" 
               type="password" 
               placeholder="sk-..."
-              @input="saveSettings"
+              @input="scheduleSave"
             />
             <div class="input-glow"></div>
           </div>
@@ -125,7 +125,7 @@
                 min="0" 
                 max="2" 
                 step="0.1"
-                @input="saveSettings"
+                @input="scheduleSave"
               />
               <span class="value-display">{{ settings.temperature }}</span>
             </div>
@@ -143,7 +143,7 @@
                 min="0" 
                 max="1" 
                 step="0.1"
-                @input="saveSettings"
+                @input="scheduleSave"
               />
               <span class="value-display">{{ settings.topP }}</span>
             </div>
@@ -161,7 +161,7 @@
                 min="1" 
                 max="100" 
                 step="1"
-                @input="saveSettings"
+                @input="scheduleSave"
               />
               <span class="value-display">{{ settings.topK }}</span>
             </div>
@@ -264,11 +264,24 @@ const loadSettings = () => {
   }
 }
 
-const saveSettings = async () => {
-  localStorage.setItem('openai-settings', JSON.stringify(settings))
-  await openAIStore.updateSettings(settings)
-  
-  // Show more detailed notification based on what was saved
+// 输入时防抖保存，不再每次按键都发请求、弹通知
+let saveTimer: ReturnType<typeof setTimeout> | null = null
+const scheduleSave = () => {
+  if (saveTimer) clearTimeout(saveTimer)
+  saveTimer = setTimeout(() => {
+    saveTimer = null
+    void saveSettings(true)
+  }, 600)
+}
+
+const saveSettings = async (quiet = false) => {
+  const credentialsChanged = settings.openaiEndpoint !== openAIStore.settings.openaiEndpoint
+    || settings.apiKey !== openAIStore.settings.apiKey
+  await openAIStore.updateSettings({ ...settings })
+  isConnected.value = openAIStore.isConnected
+  if (credentialsChanged && openAIStore.isConnected && !models.value.length) void fetchModels()
+  if (quiet) return
+
   if (settings.selectedModel) {
     notificationService.showSuccess(`配置已保存 - 模型: ${settings.selectedModel}`, '设置保存成功')
   } else {
@@ -289,7 +302,7 @@ const filterModels = () => {
 const selectModel = async (model: Model) => {
   selectedModel.value = model
   settings.selectedModel = model.id
-  await saveSettings()
+  await saveSettings(true)
   notificationService.showInfo(`已选择模型: ${model.id}`, '模型选择')
 }
 
@@ -347,38 +360,22 @@ const fetchModels = async () => {
 
 const testConnection = async () => {
   if (!canTest.value) return
-  
+
   isTesting.value = true
   testResult.value = null
   notificationService.showTestStarted()
-  
+
   try {
-    // Test connection by fetching models list (free API call)
-    const response = await fetch(`${settings.openaiEndpoint}/models`, {
-      headers: {
-        'Authorization': `Bearer ${settings.apiKey}`,
-        'Content-Type': 'application/json'
-      }
-    })
-    
-    if (response.ok) {
-      testResult.value = {
-        success: true,
-        message: '连接测试成功！API密钥和端点配置正确。'
-      }
-      isConnected.value = true
+    await openAIStore.updateSettings({ ...settings })
+    const result = await openAIStore.testConnection()
+    testResult.value = result
+    isConnected.value = result.success
+    if (result.success) {
       notificationService.showConnectionSuccess()
+      if (!models.value.length) void fetchModels()
     } else {
-      throw new Error('API request failed')
+      notificationService.showConnectionError(result.message)
     }
-  } catch (error) {
-    console.error('Connection test error:', error)
-    testResult.value = {
-      success: false,
-      message: '连接测试失败，请检查API密钥和端点配置。'
-    }
-    isConnected.value = false
-    notificationService.showConnectionError('连接测试失败，请检查API密钥和端点配置。')
   } finally {
     isTesting.value = false
   }
