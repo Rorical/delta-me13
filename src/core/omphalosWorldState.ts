@@ -137,6 +137,7 @@ export interface AICallRecord {
   completionTokens: number;
   error?: string;
   preview?: string;
+  reasoning?: string;                // 模型返回的思考内容 / 推理摘要
 }
 
 export interface AIStats {

@@ -9,8 +9,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "openai": "^4.63.0",
+    "@anthropic-ai/sdk": "^0.128.0",
     "lucide-vue-next": "^0.534.0",
+    "openai": "^4.63.0",
     "pinia": "^3.0.3",
     "uuid": "^11.1.0",
     "vue": "^3.4.38"

@@ -16,7 +16,7 @@
 - **时间纪元**: 动态的时间系统，影响世界发展
 
 ### 🤖 AI驱动的智能代理
-- **真实对话**: 基于OpenAI的自然语言交互
+- **真实对话**: 支持 OpenAI Responses、OpenAI 兼容端点、Anthropic 与 DeepSeek 的大模型驱动
 - **智能决策**: 每个代理都有独特的性格和目标
 - **记忆系统**: 长期和短期记忆，影响决策
 - **情感系统**: 代理间的关系和互动
@@ -25,7 +25,7 @@
 
 ### 环境要求
 - Node.js 18+
-- OpenAI API Key
+- 任一模型服务的 API Key（OpenAI / Anthropic / DeepSeek / OpenAI 兼容端点）
 
 ### 安装步骤
 
@@ -47,7 +47,7 @@ npm run dev
 
 4. **访问应用**
    - 打开浏览器访问 `http://localhost:5173`
-   - 配置OpenAI连接
+   - 在「再创世 / 因果矩阵」中选择调用协议、填写密钥与模型并测试连接
    - 点击"启动仿真"开始体验
 
 ## 🎮 系统功能
@@ -90,7 +90,12 @@ npm run dev
 - **记忆系统**: 代理的长期和短期记忆
 
 ### AI集成
-- **OpenAI API**: 自然语言处理和决策
+- **多协议模型接入**（`src/core/providers.ts`）:
+  - OpenAI Responses API：推理模型使用 reasoning effort，并记录推理摘要
+  - OpenAI Chat Completions：兼容 vLLM、OpenRouter、Ollama 等端点
+  - Anthropic Messages API：浏览器直连；新一代 Claude 使用自适应思考与 effort，旧款使用思考预算；官方端点上的 `claude-opus-5` / `claude-fable-5-1` 默认启用服务器端拒绝回退
+  - DeepSeek V4（`deepseek-v4-pro` / `deepseek-v4-flash`）：`thinking` 思考模式与 `reasoning_effort`
+  - 模型返回的思考内容会显示在仿真的「因果矩阵」调用日志中
 - **智能对话**: 上下文感知的对话系统
 - **个性化**: 每个代理的独特性格和行为
 
@@ -105,7 +110,8 @@ src/
 │   ├── omphalosWorldState.ts   # 世界状态类型（单一数据源）
 │   ├── engine.ts               # 世界引擎：动作结算、战斗、黑潮、异象、纪元
 │   ├── llmSimulation.ts        # 仿真控制：并发决策、当日回应、暂停/停止、纪元轮回
-│   ├── llm.ts                  # 模型网关：函数调用 + 纯JSON降级、统计、超时与中止
+│   ├── llm.ts                  # 模型网关：工具调用 + 纯JSON降级、统计、超时与中止
+│   ├── providers.ts            # 协议适配：OpenAI Responses / Chat、Anthropic、DeepSeek
 │   ├── recipes.ts              # 可制作物品
 │   ├── agent/
 │   │   ├── actions.ts          # 动作定义、Schema 与清洗
@@ -113,7 +119,7 @@ src/
 │   │   ├── memory.ts           # 近况 + 摘要式记忆
 │   │   └── *Profiles.ts        # 黄金裔、泰坦、居民设定
 │   └── config/                 # 城邦地图、世界构建
-└── stores/openAIStore.ts       # 因果矩阵（模型连接）配置
+└── stores/openAIStore.ts       # 因果矩阵（模型连接）配置：协议、端点、密钥、模型、思考强度
 ```
 
 ## 🎯 核心概念

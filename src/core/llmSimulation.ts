@@ -1,7 +1,7 @@
-import type OpenAI from 'openai';
 import { WorldEngine } from './engine';
 import { AgentMemory } from './agent/memory';
 import { LLMGateway, mapLimit, type LLMConfig } from './llm';
+import type { ProviderAdapter } from './providers';
 import { buildSystemPrompt, buildUserPrompt } from './agent/prompts';
 import { ALLOWED_ACTIONS, type Action, type ActionType, type Decision } from './agent/actions';
 import { createWorld } from './config/worldFactory';
@@ -82,8 +82,8 @@ export class OmphalosSimulation {
     return m;
   }
 
-  connect(client: OpenAI, llm: LLMConfig) {
-    this.gateway = new LLMGateway(client, llm, () => this.state.ai);
+  connect(adapter: ProviderAdapter, llm: LLMConfig) {
+    this.gateway = new LLMGateway(adapter, llm, () => this.state.ai);
   }
 
   updateConfig(patch: Partial<SimConfig>) {

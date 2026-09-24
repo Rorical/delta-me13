@@ -1,11 +1,9 @@
-import type OpenAI from 'openai';
 import type { AICallRecord, AIStats } from './omphalosWorldState';
 import { AI_RECORD_LIMIT } from './omphalosWorldState';
 import { buildDecisionSchema, normalizeActions, type ActionType, type Decision } from './agent/actions';
+import type { CompletionResult, ProviderAdapter, ToolSpec } from './providers';
 
 export interface LLMConfig {
-  model: string;
-  temperature: number;
   timeoutMs: number;
 }
 
@@ -17,10 +15,8 @@ export interface DecisionRequest {
   allowed: ActionType[];
 }
 
-// 推理类模型不接受 temperature
-function isReasoningModel(model: string): boolean {
-  return /(^|\/)o\d/i.test(model) || /gpt-5/i.test(model);
-}
+const TOOL_NAME = 'act';
+const JSON_FORMAT = '{"thought":"...","actions":[{"type":"...",...}]}';
 
 function extractJson(text: string): any {
   const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
@@ -31,13 +27,25 @@ function extractJson(text: string): any {
   return JSON.parse(body.slice(start, end + 1));
 }
 
-// 统一的模型调用入口：函数调用优先，端点不支持时自动降级为纯文本JSON
+function parseArgs(args: unknown): any {
+  if (typeof args === 'string') return JSON.parse(args);
+  return args;
+}
+
+// 请求失败是否说明端点不支持工具调用（此时降级为纯文本JSON）
+function looksLikeToolUnsupported(err: any): boolean {
+  const status = err?.status ?? err?.response?.status;
+  const message = String(err?.message ?? '');
+  return status === 422 || ((status === 400 || status === 404) && /tool|function/i.test(message));
+}
+
+// 统一的模型调用入口：工具调用优先，端点不支持时自动降级为纯文本JSON
 export class LLMGateway {
   private useTools = true;
   private seq = 0;
 
   constructor(
-    private client: OpenAI,
+    private adapter: ProviderAdapter,
     private config: LLMConfig,
     private stats: () => AIStats,
     private signal?: AbortSignal
@@ -52,9 +60,7 @@ export class LLMGateway {
       return await this.decideOnce(req, this.useTools);
     } catch (err: any) {
       if (this.signal?.aborted) throw err;
-      // 400/422 多半是端点不支持 tools，切换到JSON模式重试一次
-      const status = err?.status ?? err?.response?.status;
-      if (this.useTools && (status === 400 || status === 422 || status === 404 || /tool|function/i.test(String(err?.message)))) {
+      if (this.useTools && looksLikeToolUnsupported(err)) {
         this.useTools = false;
         return this.decideOnce(req, false);
       }
@@ -64,37 +70,29 @@ export class LLMGateway {
 
   async summarize(agentId: string, day: number, text: string): Promise<string> {
     const { res } = await this.call(agentId, day, {
-      messages: [
-        { role: 'system', content: '把以下角色经历压缩为不超过150字的第一人称摘要，保留关键人物、恩怨、承诺与目标。' },
-        { role: 'user', content: text }
-      ]
+      system: '把以下角色经历压缩为不超过150字的第一人称摘要，保留关键人物、恩怨、承诺与目标。只输出摘要本身。',
+      user: text
     });
-    return res.choices[0]?.message?.content?.trim() || '';
+    return res.text.trim();
   }
 
   private async decideOnce(req: DecisionRequest, tools: boolean): Promise<Decision> {
-    const schema = buildDecisionSchema(req.allowed);
+    const tool: ToolSpec | undefined = tools
+      ? { name: TOOL_NAME, description: '决定今天的行动', schema: buildDecisionSchema(req.allowed) }
+      : undefined;
+    // 部分模型（思考模式、最新的 Claude）不允许强制工具调用，因此在提示中明确要求
     const system = tools
-      ? req.system
-      : `${req.system}\n\n只输出一个JSON对象，不要任何其他文字，格式：{"thought":"...","actions":[{"type":"...",...}]}`;
-    const body: Record<string, any> = {
-      messages: [
-        { role: 'system', content: system },
-        { role: 'user', content: req.user }
-      ]
-    };
-    if (tools) {
-      body.tools = [{ type: 'function', function: { name: 'act', description: '决定今天的行动', parameters: schema } }];
-      body.tool_choice = { type: 'function', function: { name: 'act' } };
-    }
-    const { res, record } = await this.call(req.agentId, req.day, body);
-    const msg = res.choices[0]?.message;
-    const argText = msg?.tool_calls?.[0]?.function?.arguments;
+      ? `${req.system}\n\n请调用 ${TOOL_NAME} 工具提交你的决定，不要只用文字回答。`
+      : `${req.system}\n\n只输出一个JSON对象，不要任何其他文字，格式：${JSON_FORMAT}`;
+    const { res, record } = await this.call(req.agentId, req.day, { system, user: req.user, tool });
+
+    if (res.refusal) throw new Error(`模型拒绝：${res.refusal}`);
     let parsed: any;
-    if (argText) parsed = JSON.parse(argText);
-    else if (msg?.content) parsed = extractJson(msg.content);
+    if (res.toolArgs !== undefined) parsed = parseArgs(res.toolArgs);
+    else if (res.text.trim()) parsed = extractJson(res.text);
     else throw new Error('模型没有返回任何内容');
     if (Array.isArray(parsed)) parsed = { thought: '', actions: parsed };
+
     const decision = {
       thought: String(parsed?.thought ?? '').slice(0, 160),
       actions: normalizeActions(parsed?.actions, req.allowed)
@@ -103,24 +101,27 @@ export class LLMGateway {
     return decision;
   }
 
-  private async call(agentId: string, day: number, body: Record<string, any>) {
+  private async call(agentId: string, day: number, input: { system: string; user: string; tool?: ToolSpec }) {
     const stats = this.stats();
     const started = performance.now();
     const record: AICallRecord = {
-      id: ++this.seq, day, agentId, model: this.config.model, ms: 0, ok: false, promptTokens: 0, completionTokens: 0
+      id: ++this.seq, day, agentId, model: this.adapter.model, ms: 0, ok: false, promptTokens: 0, completionTokens: 0
     };
-    const request: Record<string, any> = { model: this.config.model, ...body };
-    if (!isReasoningModel(this.config.model)) request.temperature = this.config.temperature;
     try {
-      const res = await this.client.chat.completions.create(request as any, {
+      const res: CompletionResult = await this.adapter.complete({
+        ...input,
         signal: this.signal,
-        timeout: this.config.timeoutMs,
-        maxRetries: 1
+        timeoutMs: this.config.timeoutMs
       });
-      record.ok = true;
-      record.promptTokens = res.usage?.prompt_tokens ?? 0;
-      record.completionTokens = res.usage?.completion_tokens ?? 0;
-      return { res: res as OpenAI.Chat.Completions.ChatCompletion, record };
+      record.ok = !res.refusal;
+      record.promptTokens = res.inputTokens;
+      record.completionTokens = res.outputTokens;
+      if (res.reasoning) record.reasoning = res.reasoning.slice(0, 1200);
+      if (res.refusal) {
+        record.error = `拒绝：${res.refusal}`.slice(0, 160);
+        stats.failures++;
+      }
+      return { res, record };
     } catch (err: any) {
       record.error = String(err?.message || err).slice(0, 160);
       stats.failures++;

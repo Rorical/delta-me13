@@ -192,20 +192,13 @@ const selectCity = (id: string) => {
 };
 
 const ensureConnected = (): boolean => {
-  if (!openAIStore.isConfigured() || !openAIStore.isConnected) {
-    notificationService.showError('请先配置并连接因果矩阵（模型端点、密钥与模型）。', '配置错误');
+  const adapter = openAIStore.getAdapter();
+  if (!adapter || !openAIStore.isConnected) {
+    notificationService.showError('请先在「因果矩阵」中选择协议、填写密钥与模型并测试连接。', '配置错误');
     return false;
   }
-  const client = openAIStore.getClient();
-  if (!client) {
-    notificationService.showError('无法获取因果矩阵客户端，请检查配置。', '连接错误');
-    return false;
-  }
-  sim.connect(client, {
-    model: openAIStore.settings.selectedModel,
-    temperature: Number(openAIStore.settings.temperature) || 0.7,
-    timeoutMs: 90_000
-  });
+  // 每次启动都以最新的协议、模型与思考强度重建连接
+  sim.connect(adapter, { timeoutMs: 120_000 });
   return true;
 };
 
