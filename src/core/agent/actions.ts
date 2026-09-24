@@ -15,7 +15,8 @@ export type Action =
   | { type: 'GIFT'; targetId: string; items: Record<string, number> }
   | { type: 'BUILD_DEFENSE'; defenseType: 'WALL' | 'WATCHTOWER' }
   | { type: 'CLEANSE' }
-  | { type: 'BESTOW_EMBER'; targetId: string };
+  | { type: 'BESTOW_EMBER'; targetId: string }
+  | { type: 'RETURN_EMBER' };
 
 export type ActionType = Action['type'];
 
@@ -39,11 +40,12 @@ export const ACTION_DOCS: Record<ActionType, string> = {
   GIFT: 'GIFT {targetId, items}: 赠送物品给同城某人，如 items:{"治疗药剂":1}',
   BUILD_DEFENSE: 'BUILD_DEFENSE {defenseType: WALL|WATCHTOWER}: 消耗5材料为所在城邦修筑城防，减缓黑潮',
   CLEANSE: 'CLEANSE: 净化所在城邦的黑潮（消耗少量生命）',
-  BESTOW_EMBER: 'BESTOW_EMBER {targetId}: 将你守护的火种授予同城的一位黄金裔（需其认可度≥30）'
+  BESTOW_EMBER: 'BESTOW_EMBER {targetId}: 将你守护的火种授予同城的一位黄金裔（需其认可度≥30）',
+  RETURN_EMBER: 'RETURN_EMBER: 在创世涡心归还身上的火种，承载其神权、成为半神；十二火种全部归还即完成再创世'
 };
 
 export const ALLOWED_ACTIONS: Record<AgentKind, ActionType[]> = {
-  heir: ['MOVE', 'CHAT', 'INSPECT', 'FORM_ALLIANCE', 'ATTACK', 'DEFEND', 'REST', 'GATHER', 'CRAFT', 'USE_ITEM', 'TRADE', 'GIFT', 'BUILD_DEFENSE', 'CLEANSE'],
+  heir: ['MOVE', 'CHAT', 'INSPECT', 'FORM_ALLIANCE', 'ATTACK', 'DEFEND', 'REST', 'GATHER', 'CRAFT', 'USE_ITEM', 'TRADE', 'GIFT', 'BUILD_DEFENSE', 'CLEANSE', 'RETURN_EMBER'],
   titan: ['CHAT', 'INSPECT', 'ATTACK', 'DEFEND', 'REST', 'GIFT', 'CLEANSE', 'BESTOW_EMBER'],
   npc: ['MOVE', 'CHAT', 'INSPECT', 'FORM_ALLIANCE', 'ATTACK', 'DEFEND', 'REST', 'GATHER', 'CRAFT', 'USE_ITEM', 'TRADE', 'GIFT', 'BUILD_DEFENSE', 'CLEANSE']
 };
@@ -89,7 +91,8 @@ const TYPE_ALIASES: Record<string, ActionType> = {
   CHALLENGE_TITAN: 'ATTACK',
   TALK: 'CHAT',
   SAY: 'CHAT',
-  TRAVEL: 'MOVE'
+  TRAVEL: 'MOVE',
+  RETURN: 'RETURN_EMBER'
 };
 
 function toCounts(v: unknown): Record<string, number> {

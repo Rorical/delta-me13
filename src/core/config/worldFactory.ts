@@ -18,7 +18,7 @@ export function createWorldAgents(npcSeeds: NPCSeed[]): Record<string, AgentStat
 
   for (const t of TWELVE_TITANS) {
     const titan: TitanStatus = {
-      id: t.id, name: t.name, kind: 'titan', subtitle: `${t.title} · ${t.path}泰坦`,
+      id: t.id, name: t.name, kind: 'titan', subtitle: `「${t.title}」${t.path}之泰坦`,
       location: t.home, hp: t.hp, maxHp: t.hp, power: t.power, defense: t.defense,
       inventory: {}, allies: [], relations: {}, condition: 'active', counters: emptyCounters(),
       path: t.path, disposition: t.disposition, emberId: emberIdFor(t), emberTaken: false, respect: {}
@@ -28,10 +28,10 @@ export function createWorldAgents(npcSeeds: NPCSeed[]): Record<string, AgentStat
 
   for (const h of GOLDEN_HEIRS) {
     const heir: HeirStatus = {
-      id: h.id, name: h.trueName, kind: 'heir', subtitle: `${h.path}的黄金裔`,
+      id: h.id, name: h.trueName, kind: 'heir', subtitle: h.epithet,
       location: h.home, hp: h.hp, maxHp: h.hp, power: h.power, defense: h.defense,
       inventory: { ...h.inventory }, allies: [], relations: {}, condition: 'active', counters: emptyCounters(),
-      codename: h.codename, path: h.path, targetTitanId: h.titanTarget, embers: [], deaths: 0, xp: 0, level: 1
+      codename: h.codename, path: h.path, targetTitanId: h.titanTarget, embers: [], demigod: [], deaths: 0, xp: 0, level: 1
     };
     agents[h.id] = heir;
   }
@@ -56,7 +56,7 @@ export function createEmbers(): Record<string, Ember> {
   const embers: Record<string, Ember> = {};
   for (const t of TWELVE_TITANS) {
     const id = emberIdFor(t);
-    embers[id] = { id, name: `${t.path}火种`, path: t.path, titanId: t.id };
+    embers[id] = { id, name: `「${t.path}」的火种`, path: t.path, titanId: t.id, returned: false };
   }
   return embers;
 }

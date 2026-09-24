@@ -1,0 +1,234 @@
+/* 仿真面板共用样式 —— 沿用首页（实验档案）的视觉语言：
+   单色浅蓝、Courier New、面板标题 + 渐隐分隔线、悬停时发光右移。 */
+.om-root {
+  --om-text: rgba(173, 216, 230, 0.9);
+  --om-muted: rgba(173, 216, 230, 0.6);
+  --om-faint: rgba(173, 216, 230, 0.35);
+  --om-line: rgba(173, 216, 230, 0.1);
+  --om-line-strong: rgba(173, 216, 230, 0.15);
+  --om-fill: rgba(173, 216, 230, 0.03);
+  --om-fill-hover: rgba(173, 216, 230, 0.08);
+  --om-active: rgba(173, 216, 230, 0.9);
+  --om-glow: 0 0 15px rgba(173, 216, 230, 0.15);
+  color: var(--om-text);
+  font-family: 'Courier New', monospace;
+}
+
+.om-panel {
+  background: var(--om-fill);
+  border: 1px solid var(--om-line);
+  border-radius: 8px;
+  padding: 16px;
+  box-sizing: border-box;
+  min-width: 0;
+}
+
+.om-panel-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: bold;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--om-line-strong);
+  color: var(--om-text);
+}
+
+.om-panel-header .om-line {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(173, 216, 230, 0.3), transparent);
+  margin: 0 6px;
+}
+
+.om-panel-header small {
+  font-weight: normal;
+  color: var(--om-muted);
+  font-size: 12px;
+}
+
+/* 可点击条目：与首页「记录扇区」文件条目一致 */
+.om-item {
+  position: relative;
+  overflow: hidden;
+  background: var(--om-fill);
+  border: 1px solid rgba(173, 216, 230, 0.08);
+  border-radius: 4px;
+  color: var(--om-text);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+.om-item::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  left: -100%;
+  background: linear-gradient(90deg, transparent, rgba(173, 216, 230, 0.08), transparent);
+  transition: left 0.5s ease;
+  pointer-events: none;
+}
+
+.om-item:hover,
+.om-item.active {
+  background: var(--om-fill-hover);
+  border-color: var(--om-active);
+  box-shadow: var(--om-glow);
+}
+
+.om-item.slide:hover,
+.om-item.slide.active {
+  transform: translateX(4px);
+}
+
+.om-item:hover::after,
+.om-item.active::after {
+  left: 100%;
+}
+
+.om-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-size: 13px;
+  font-family: inherit;
+  color: var(--om-text);
+  background: var(--om-fill);
+  border: 1px solid var(--om-line-strong);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+.om-btn:hover:not(:disabled) {
+  background: var(--om-fill-hover);
+  border-color: var(--om-active);
+  box-shadow: var(--om-glow);
+}
+
+.om-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.om-btn.primary {
+  border-color: rgba(173, 216, 230, 0.6);
+  background: rgba(173, 216, 230, 0.08);
+}
+
+.om-btn.icon-only {
+  padding: 6px 8px;
+}
+
+.om-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(173, 216, 230, 0.35);
+  flex-shrink: 0;
+}
+
+.om-dot.live {
+  background: rgba(173, 216, 230, 0.8);
+  box-shadow: 0 0 10px rgba(173, 216, 230, 0.8);
+  animation: om-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes om-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+.om-bar {
+  height: 4px;
+  background: rgba(173, 216, 230, 0.08);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.om-bar > i {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, rgba(173, 216, 230, 0.4), rgba(173, 216, 230, 0.9));
+  box-shadow: 0 0 6px rgba(173, 216, 230, 0.5);
+  transition: width 0.4s ease;
+}
+
+.om-bar.hazard > i {
+  background: repeating-linear-gradient(135deg, rgba(173, 216, 230, 0.85) 0 4px, rgba(173, 216, 230, 0.35) 4px 8px);
+}
+
+.om-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  font-size: 12px;
+  font-family: inherit;
+  color: var(--om-muted);
+  background: transparent;
+  border: 1px solid var(--om-line-strong);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.om-chip:hover {
+  color: var(--om-text);
+  border-color: rgba(173, 216, 230, 0.5);
+}
+
+.om-chip.active {
+  color: var(--om-text);
+  border-color: var(--om-active);
+  background: var(--om-fill-hover);
+  box-shadow: var(--om-glow);
+}
+
+.om-input {
+  font-family: inherit;
+  font-size: 12px;
+  color: var(--om-text);
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--om-line-strong);
+  border-radius: 4px;
+  padding: 5px 8px;
+  outline: none;
+}
+
+.om-input:focus {
+  border-color: var(--om-active);
+  box-shadow: var(--om-glow);
+}
+
+.om-muted {
+  color: var(--om-muted);
+}
+
+.om-empty {
+  color: var(--om-muted);
+  font-size: 12px;
+  text-align: center;
+  padding: 20px;
+}
+
+.om-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  color: var(--om-muted);
+  border: 1px solid var(--om-line-strong);
+  border-radius: 3px;
+  padding: 0 5px;
+  line-height: 18px;
+}
+
+.om-tag.strong {
+  color: var(--om-text);
+  border-color: rgba(173, 216, 230, 0.6);
+}

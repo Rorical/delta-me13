@@ -7,7 +7,7 @@ import { ALLOWED_ACTIONS, type Action, type ActionType, type Decision } from './
 import { createWorld } from './config/worldFactory';
 import type { NPCSeed } from './agent/npcProfiles';
 import {
-  type AgentStatus, type OmphalosWorldState, collectedEmberCount, isNpc, isTitan
+  type AgentStatus, type OmphalosWorldState, returnedEmberCount, isNpc, isTitan
 } from './omphalosWorldState';
 
 export interface SimConfig {
@@ -304,10 +304,10 @@ export class OmphalosSimulation {
   private startNewEra(outcome: 'recreation' | 'collapse') {
     this.pendingEraEnd = undefined;
     const old = this.state;
-    const embers = collectedEmberCount(old);
+    const embers = returnedEmberCount(old);
     const summary = outcome === 'recreation'
-      ? `十二火种归位，第${old.era}纪元在创世涡心迎来再创世。`
-      : `黑潮吞没了翁法罗斯，第${old.era}纪元终结，权杖开始新一轮演算。`;
+      ? `十二火种尽数归还创世涡心，第${old.era}纪元迎来再创世。`
+      : `黑潮吞没了翁法罗斯，第${old.era}纪元终结，永劫回归再度开启。`;
     const { state } = createWorld({ npcCount: this.config.npcCount, npcs: this.npcSeeds });
     state.era = old.era + 1;
     state.totalDays = old.totalDays;
@@ -341,5 +341,6 @@ function describe(action: Action, s: OmphalosWorldState): string {
     case 'DEFEND': return '防御';
     case 'REST': return '休息';
     case 'CLEANSE': return '净化黑潮';
+    case 'RETURN_EMBER': return '归还火种';
   }
 }

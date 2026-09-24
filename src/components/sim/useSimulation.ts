@@ -41,14 +41,22 @@ export function useSimTick(sim: OmphalosSimulation, intervalMs = 150) {
   return tick;
 }
 
-export function tideColor(v: number): string {
-  if (v < 25) return '#38bdf8';
-  if (v < 50) return '#818cf8';
-  if (v < 75) return '#c084fc';
-  return '#f43f5e';
+// 单色体系：黑潮越深，光晕越浓
+export function tideAlpha(v: number): number {
+  return 0.08 + Math.min(100, Math.max(0, v)) / 100 * 0.55;
+}
+
+export function tideLabel(v: number): string {
+  if (v >= 90) return '沦陷';
+  if (v >= 70) return '危急';
+  if (v >= 45) return '侵蚀';
+  if (v >= 20) return '波动';
+  return '安定';
 }
 
 export const KIND_LABEL: Record<string, string> = { heir: '黄金裔', titan: '泰坦', npc: '居民' };
+
+export const DISPOSITION_LABEL: Record<string, string> = { benevolent: '仍记神谕', neutral: '火种试炼', corrupted: '失神 · 黑潮侵染' };
 
 export const LOG_TYPE_LABEL: Record<string, string> = {
   system: '系统', move: '移动', chat: '对话', combat: '战斗', ember: '火种', economy: '经济',

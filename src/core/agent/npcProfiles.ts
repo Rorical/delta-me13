@@ -23,7 +23,7 @@ export const NPC_ROLES: Record<NPCRole, NPCRoleProfile> = {
     label: '守卫', duty: '守护城邦，修筑城防，抵御黑潮',
     focus: '多用 BUILD_DEFENSE 与 CLEANSE，保护所在城邦',
     hp: 110, power: 16, defense: 8, inventory: { food: 6, materials: 8 },
-    personalities: ['沉默寡言，行动胜于言语', '严厉但公正', '老兵油子，爱讲当年的战事']
+    personalities: ['山之民出身，一丝不苟，说话简短', '严厉但公正的老兵', '爱讲当年黄金战争旧事的老卫士']
   },
   SCHOLAR: {
     label: '学者', duty: '研究泰坦、火种与黑潮，向黄金裔传授知识',

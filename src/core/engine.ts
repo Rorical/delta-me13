@@ -1,7 +1,7 @@
 // 世界引擎：动作结算、世界演化（黑潮、事件、纪元轮回）。不包含任何模型调用。
 import {
   type AgentStatus, type CityState, type HeirStatus, type LogType, type OmphalosWorldState, type TitanStatus, type WorldLog,
-  LOG_LIMIT, MESSAGE_LIMIT, collectedEmberCount, isHeir, isNpc, isTitan, nextHop
+  LOG_LIMIT, MESSAGE_LIMIT, collectedEmberCount, returnedEmberCount, isHeir, isNpc, isTitan, nextHop
 } from './omphalosWorldState';
 import type { Action } from './agent/actions';
 import { getItem } from './recipes';
@@ -232,7 +232,7 @@ export class WorldEngine {
         for (const [k, n] of Object.entries(action.offer)) { this.addItem(actor, k, -n); this.addItem(t, k, n); }
         for (const [k, n] of Object.entries(action.request)) { this.addItem(t, k, -n); this.addItem(actor, k, n); }
         this.relate(actor, t, 3); this.relate(t, actor, 3);
-        this.log('economy', `${actor.name} 与 ${t.name} 交易：${this.describeItems(action.offer)} ⇄ ${this.describeItems(action.request)}`, 'low', { agentId: actor.id, targetId: t.id, location: actor.location });
+        this.log('economy', `${actor.name} 与 ${t.name} 交易：以${this.describeItems(action.offer)}换取${this.describeItems(action.request)}`, 'low', { agentId: actor.id, targetId: t.id, location: actor.location });
         return { ok: true, message: `与${t.name}完成交易` };
       }
 
@@ -267,8 +267,10 @@ export class WorldEngine {
         actor.hp = Math.max(1, actor.hp - cost);
         if (isHeir(actor)) {
           this.gainXp(actor, 4);
-          const titan = city.titanId ? this.agent(city.titanId) : undefined;
-          if (isTitan(titan)) titan.respect[actor.id] = (titan.respect[actor.id] ?? 0) + 6;
+          for (const id of city.titanIds) {
+            const titan = this.agent(id);
+            if (isTitan(titan)) titan.respect[actor.id] = (titan.respect[actor.id] ?? 0) + 6;
+          }
         }
         if (city.fallen && city.darkTide < 60) {
           city.fallen = false;
@@ -288,6 +290,29 @@ export class WorldEngine {
         if ((actor.respect[t.id] ?? 0) < 30) return { ok: false, message: `${t.name}尚未得到足够的认可（${actor.respect[t.id] ?? 0}/30）` };
         this.transferEmber(actor, t, 'bestow');
         return { ok: true, message: `将火种授予了${t.name}` };
+      }
+
+      case 'RETURN_EMBER': {
+        if (!isHeir(actor)) return { ok: false, message: '只有黄金裔能归还火种' };
+        if (actor.location !== RECREATION_SITE) return { ok: false, message: `火种只能在${RECREATION_SITE}归还` };
+        if (!actor.embers.length) return { ok: false, message: '你身上没有尚未归还的火种' };
+        const names: string[] = [];
+        for (const id of actor.embers) {
+          const ember = this.state.embers[id];
+          ember.returned = true;
+          names.push(ember.name);
+          actor.demigod.push(ember.path);
+          actor.maxHp += 30;
+          actor.power += 4;
+          actor.defense += 2;
+        }
+        actor.embers = [];
+        actor.hp = actor.maxHp;
+        actor.subtitle = `「${actor.demigod.join('」「')}」的半神`;
+        this.gainXp(actor, 40);
+        this.log('ember', `${actor.name} 在创世涡心归还了${names.join('、')}，星宿亮起，成为${actor.subtitle}（${returnedEmberCount(this.state)}/12）`, 'critical',
+          { agentId: actor.id, location: RECREATION_SITE });
+        return { ok: true, message: `归还${names.join('、')}，成为半神` };
       }
     }
   }
@@ -343,7 +368,7 @@ export class WorldEngine {
     loser.hp = 0;
     if (isTitan(loser)) {
       loser.condition = 'fallen';
-      this.log('combat', `⚔ 泰坦${loser.name}被${winner.name}击败！`, 'critical', { agentId: winner.id, targetId: loser.id, location: loser.location });
+      this.log('combat', `泰坦${loser.name}被${winner.name}击败！`, 'critical', { agentId: winner.id, targetId: loser.id, location: loser.location });
       if (!loser.emberTaken && isHeir(winner)) this.transferEmber(loser, winner, 'conquest');
       else if (!loser.emberTaken) {
         // 非黄金裔击败泰坦：火种交给同城最近的黄金裔，否则散落回圣所
@@ -370,7 +395,7 @@ export class WorldEngine {
     heir.maxHp += 20;
     heir.hp = Math.min(heir.maxHp, heir.hp + 40);
     const verb = how === 'bestow' ? `将${ember.name}授予了` : `的${ember.name}被夺取，归于`;
-    this.log('ember', `🔥 ${titan.name}${verb}${heir.name}！（${collectedEmberCount(this.state)}/12）`, 'critical',
+    this.log('ember', `${titan.name}${verb}${heir.name}！（已取得${collectedEmberCount(this.state)}/12，须带往${RECREATION_SITE}归还）`, 'critical',
       { agentId: heir.id, targetId: titan.id, location: titan.location });
   }
 
@@ -395,7 +420,7 @@ export class WorldEngine {
     const list = this.inbox.get(to.id) ?? [];
     if (!list.includes(from.id)) list.push(from.id);
     this.inbox.set(to.id, list);
-    this.log('chat', `${from.name} → ${to.name}：“${content}”`, 'medium', { agentId: from.id, targetId: to.id, location: from.location });
+    this.log('chat', `${from.name} 对 ${to.name} 说：「${content}」`, 'medium', { agentId: from.id, targetId: to.id, location: from.location });
   }
 
   // ---------- 每日开始 / 结束 ----------
@@ -433,8 +458,8 @@ export class WorldEngine {
   private tickDarkTide() {
     const s = this.state;
     const cities = Object.values(s.cities);
-    const embers = collectedEmberCount(s);
-    // 纪元越往后黑潮越凶；每枚归位的火种都会压制黑潮
+    const embers = returnedEmberCount(s);
+    // 纪元越往后黑潮越凶；每枚归还的火种都会压制黑潮
     const base = s.darkTide.growth * (1 + (s.era - 1) * 0.15) * (1 - embers * 0.05);
     const snapshot = Object.fromEntries(cities.map(c => [c.id, c.darkTide]));
     for (const c of cities) {
@@ -442,9 +467,9 @@ export class WorldEngine {
       const neighborAvg = c.neighbors.reduce((sum, n) => sum + (snapshot[n] ?? 0), 0) / Math.max(1, c.neighbors.length);
       const spread = Math.max(0, neighborAvg - c.darkTide) * 0.04;
       const mitigation = clamp((c.walls + c.watchtowers * 0.5) / 30, 0, 0.5);
-      const titan = c.titanId ? s.agents[c.titanId] : undefined;
-      const guard = isTitan(titan) && titan.condition === 'active' && titan.disposition !== 'corrupted' ? 0.6 : 1;
-      const corruptBoost = isTitan(titan) && titan.disposition === 'corrupted' && titan.condition === 'active' ? 0.6 : 0;
+      const titans = c.titanIds.map(id => s.agents[id]).filter((t): t is TitanStatus => isTitan(t) && t.condition === 'active');
+      const guard = titans.some(t => t.disposition !== 'corrupted') ? 0.6 : 1;
+      const corruptBoost = titans.some(t => t.disposition === 'corrupted') ? 0.6 : 0;
       const delta = (base * (0.5 + Math.random()) + spread + corruptBoost) * (1 - mitigation) * guard;
       c.darkTide = round1(clamp(c.darkTide + delta, 0, 100));
       if (c.darkTide > 60) {
@@ -453,7 +478,7 @@ export class WorldEngine {
       }
       if (!c.fallen && c.darkTide >= 90) {
         c.fallen = true;
-        this.log('tide', `🌊 ${c.name} 被黑潮吞没了！`, 'critical', { location: c.id });
+        this.log('tide', `${c.name} 被黑潮吞没了！`, 'critical', { location: c.id });
       }
       // 身处重度黑潮中的居民会受伤
       if (c.darkTide > 70) {
@@ -508,7 +533,7 @@ export class WorldEngine {
 
   private checkEraEnd() {
     const s = this.state;
-    if (collectedEmberCount(s) >= 12) {
+    if (returnedEmberCount(s) >= 12) {
       this.onEraEnd?.('recreation');
     } else if (s.darkTide.global >= 85 || Object.values(s.cities).filter(c => c.fallen).length >= 8) {
       this.onEraEnd?.('collapse');

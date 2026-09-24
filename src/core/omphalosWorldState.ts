@@ -19,7 +19,7 @@ export interface CityState {
   neighbors: string[];
   darkTide: number;                 // 黑潮侵蚀度 0-100
   fallen: boolean;                  // 被黑潮吞没
-  titanId?: string;                 // 栖居于此的泰坦
+  titanIds: string[];               // 栖居于此的泰坦
   map: { x: number; y: number };    // 地图坐标（0-100）
 }
 
@@ -51,7 +51,8 @@ export interface HeirStatus extends AgentBase {
   codename: string;
   path: string;
   targetTitanId: string;
-  embers: string[];                 // 持有的火种 id
+  embers: string[];                 // 持有（尚未归还）的火种 id
+  demigod: string[];                // 已归还火种、承载的神权（半神）
   deaths: number;
   xp: number;
   level: number;
@@ -79,6 +80,7 @@ export interface Ember {
   path: string;
   titanId: string;
   holderId?: string;                // 当前持有者（黄金裔）
+  returned: boolean;                // 已在创世涡心归还
 }
 
 export type LogType =
@@ -200,6 +202,12 @@ export function nextHop(cities: Record<string, CityState>, from: string, to: str
   return step;
 }
 
+// 已从泰坦处取得的火种（含已归还）
 export function collectedEmberCount(state: OmphalosWorldState): number {
   return Object.values(state.embers).filter(e => !!e.holderId).length;
+}
+
+// 已在创世涡心归还的火种
+export function returnedEmberCount(state: OmphalosWorldState): number {
+  return Object.values(state.embers).filter(e => e.returned).length;
 }
