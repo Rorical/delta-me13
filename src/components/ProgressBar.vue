@@ -1,106 +1,114 @@
 <template>
   <div class="progress-section">
-    <div class="progress-container">
-      <div class="progress-bar">
-        <div class="progress-fill" :style="{ width: progress + '%' }"></div>
-        <div class="progress-glow" :style="{ left: progress + '%' }"></div>
-        <div class="progress-particles">
-          <div v-for="n in 5" :key="n" class="progress-particle" 
-               :style="{ animationDelay: (n * 0.2) + 's' }"></div>
-        </div>
-      </div>
-      <div class="progress-text">{{ Math.round(progress) }}%</div>
+    <div class="track">
+      <div class="fill" :style="{ width: progress + '%' }"></div>
+      <div class="marker" :style="{ left: progress + '%' }"></div>
+    </div>
+    <div class="cap">
+      <svg class="spinner" viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="12" cy="12" r="9" class="ring-bg" />
+        <path d="M12 3 A9 9 0 0 1 21 12" class="ring-arc" />
+      </svg>
+      <span class="percent">{{ Math.round(progress) }}<small>%</small></span>
+      <span class="label">{{ label }}</span>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-interface Props {
-  progress: number
-}
-
-defineProps<Props>()
+withDefaults(defineProps<{ progress: number; label?: string }>(), { label: '进程：再创世…' });
 </script>
 
 <style scoped>
 .progress-section {
-  margin-bottom: 30px;
-}
-
-.progress-container {
-  position: relative;
   display: flex;
-  align-items: center;
-  gap: 20px;
+  align-items: stretch;
+  height: 34px;
+  margin-bottom: 26px;
+  border-top: 1px solid var(--ui-line);
+  border-bottom: 1px solid var(--ui-line);
+  background: rgba(10, 16, 40, 0.35);
 }
 
-.progress-bar {
-  width: 100%;
-  height: 8px;
-  background: rgba(173, 216, 230, 0.03);
-  border: 1px solid rgba(173, 216, 230, 0.08);
-  border-radius: 4px;
+.track {
   position: relative;
+  flex: 1;
   overflow: hidden;
 }
 
-.progress-fill {
-  height: 100%;
-  background: linear-gradient(90deg, rgba(173, 216, 230, 0.2), rgba(173, 216, 230, 0.4));
-  border-radius: 4px;
+/* 斜条纹填充，与游戏内进度条一致 */
+.fill {
+  position: absolute;
+  inset: 5px auto 5px 0;
+  background: repeating-linear-gradient(115deg,
+    rgba(196, 230, 244, 0.85) 0 6px,
+    rgba(196, 230, 244, 0.25) 6px 11px);
+  box-shadow: 0 0 12px rgba(173, 216, 230, 0.35);
   transition: width 0.3s ease;
-  position: relative;
 }
 
-.progress-glow {
+.marker {
   position: absolute;
   top: 0;
-  width: 4px;
-  height: 100%;
-  background: rgba(173, 216, 230, 0.8);
-  border-radius: 2px;
-  box-shadow: 0 0 10px rgba(173, 216, 230, 0.6);
+  bottom: 0;
+  width: 1px;
+  background: var(--ui-accent);
+  box-shadow: 0 0 8px var(--ui-accent);
   transition: left 0.3s ease;
 }
 
-.progress-particles {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
+.cap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 16px;
+  background: rgba(5, 10, 28, 0.85);
+  border-left: 1px solid var(--ui-line);
+  white-space: nowrap;
 }
 
-.progress-particle {
-  position: absolute;
-  width: 4px;
-  height: 4px;
-  background: rgba(173, 216, 230, 0.8);
-  border-radius: 50%;
-  top: 50%;
-  transform: translateY(-50%);
-  animation: particle-move 3s infinite linear;
-  box-shadow: 0 0 8px rgba(173, 216, 230, 0.6);
+.spinner {
+  width: 24px;
+  height: 24px;
+  animation: spin 1.6s linear infinite;
 }
 
-@keyframes particle-move {
-  0% { left: 0%; opacity: 0; }
-  10% { opacity: 1; }
-  90% { opacity: 1; }
-  100% { left: 100%; opacity: 0; }
+.ring-bg {
+  fill: none;
+  stroke: rgba(173, 216, 230, 0.2);
+  stroke-width: 2;
 }
 
-@keyframes progress-shine {
-  0% { transform: translateX(-100%); }
-  100% { transform: translateX(100%); }
+.ring-arc {
+  fill: none;
+  stroke: var(--ui-accent);
+  stroke-width: 2;
+  stroke-linecap: round;
 }
 
-.progress-text {
-  position: absolute;
-  right: 0;
-  top: -25px;
-  font-size: 12px;
-  color: rgba(173, 216, 230, 0.8);
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.percent {
+  font-size: 28px;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--ui-accent);
   text-shadow: 0 0 10px rgba(173, 216, 230, 0.5);
+  font-variant-numeric: tabular-nums;
 }
-</style> 
+
+.percent small {
+  font-size: 18px;
+}
+
+.label {
+  font-size: 13px;
+  color: var(--ui-muted);
+}
+
+@media (max-width: 600px) {
+  .label { display: none; }
+}
+</style>

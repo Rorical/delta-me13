@@ -70,7 +70,7 @@ const cityList = computed(() => {
 
 <style scoped>
 .world-map { display: flex; flex-direction: column; gap: 8px; }
-.map-svg { width: 100%; max-height: 480px; border: 1px solid rgba(173, 216, 230, 0.08); border-radius: 4px; background: rgba(0, 0, 0, 0.12); }
+.map-svg { width: 100%; max-height: 480px; border: 1px solid var(--ui-line); background: rgba(0, 0, 0, 0.12); }
 .edge { stroke: rgba(173, 216, 230, 0.25); stroke-width: 0.3; stroke-dasharray: 1 0.8; }
 .city-node { cursor: pointer; }
 .halo { fill: rgba(173, 216, 230, 1); transition: opacity 0.6s ease, r 0.6s ease; }
@@ -83,11 +83,11 @@ const cityList = computed(() => {
 .titan-mark.corrupted { stroke: rgba(173, 216, 230, 0.95); stroke-width: 0.35; stroke-dasharray: 0.5 0.35; fill: rgba(173, 216, 230, 0.35); }
 .titan-mark.fallen { opacity: 0.35; }
 .site-mark { fill: rgba(173, 216, 230, 0.95); }
-.label { font-size: 2.4px; fill: rgba(173, 216, 230, 0.85); text-anchor: middle; pointer-events: none; font-family: 'Courier New', monospace; }
+.label { font-size: 2.4px; fill: rgba(173, 216, 230, 0.85); text-anchor: middle; pointer-events: none; font-family: var(--ui-font); }
 .city-node.selected .label { fill: rgba(220, 240, 250, 1); }
 .badge { fill: #0d1330; stroke: rgba(173, 216, 230, 0.5); stroke-width: 0.2; }
 .badge.heir { stroke: rgba(173, 216, 230, 1); fill: rgba(173, 216, 230, 0.25); }
-.badge-text { font-size: 2.1px; fill: rgba(220, 240, 250, 1); text-anchor: middle; pointer-events: none; font-family: 'Courier New', monospace; }
+.badge-text { font-size: 2.1px; fill: rgba(220, 240, 250, 1); text-anchor: middle; pointer-events: none; font-family: var(--ui-font); }
 .legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 11px; color: rgba(173, 216, 230, 0.6); }
 .legend span { display: inline-flex; align-items: center; gap: 5px; }
 .legend svg { width: 12px; height: 12px; overflow: visible; }

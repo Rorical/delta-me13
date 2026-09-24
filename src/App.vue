@@ -56,7 +56,7 @@
           />
 
           <!-- Right Panel -->
-          <ContentPanel :content="store.selectedFileContent" />
+          <ContentPanel :content="store.selectedFileContent" :title="store.currentFiles[store.selectedFile]?.name" />
         </div>
       </main>
     </div>
@@ -187,8 +187,8 @@ onMounted(() => {
   background: 
     radial-gradient(ellipse at center, rgba(0, 212, 255, 0.1) 0%, transparent 50%),
     linear-gradient(135deg, #0a0e27 0%, #1a1f3a 50%, #0f1419 100%);
-  color: #00d4ff;
-  font-family: 'Courier New', monospace;
+  color: var(--ui-text);
+  font-family: var(--ui-font);
   overflow: hidden;
   display: flex;
   flex-direction: column;

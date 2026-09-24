@@ -1,113 +1,124 @@
-/* 仿真面板共用样式 —— 沿用首页（实验档案）的视觉语言：
-   单色浅蓝、Courier New、面板标题 + 渐隐分隔线、悬停时发光右移。 */
+/* 仿真面板共用样式 —— 参照游戏内「如我所书 δ-me13.exe」界面：
+   DIN 风格字体、直角细框、标题后接分隔线、选中项为实色填充块、斜条纹进度条。 */
 .om-root {
-  --om-text: rgba(173, 216, 230, 0.9);
-  --om-muted: rgba(173, 216, 230, 0.6);
-  --om-faint: rgba(173, 216, 230, 0.35);
-  --om-line: rgba(173, 216, 230, 0.1);
-  --om-line-strong: rgba(173, 216, 230, 0.15);
-  --om-fill: rgba(173, 216, 230, 0.03);
-  --om-fill-hover: rgba(173, 216, 230, 0.08);
-  --om-active: rgba(173, 216, 230, 0.9);
-  --om-glow: 0 0 15px rgba(173, 216, 230, 0.15);
+  --om-text: var(--ui-text);
+  --om-muted: var(--ui-muted);
+  --om-faint: var(--ui-faint);
+  --om-line: var(--ui-line-soft);
+  --om-line-strong: var(--ui-line);
+  --om-fill: var(--ui-fill);
+  --om-fill-hover: rgba(173, 216, 230, 0.1);
+  --om-active: var(--ui-accent);
+  --om-glow: 0 0 14px rgba(173, 216, 230, 0.25);
+  --om-bar-a: rgba(196, 230, 244, 0.85);
+  --om-bar-b: rgba(196, 230, 244, 0.28);
   color: var(--om-text);
-  font-family: 'Courier New', monospace;
+  font-family: var(--ui-font);
 }
 
 .om-panel {
   background: var(--om-fill);
-  border: 1px solid var(--om-line);
-  border-radius: 8px;
-  padding: 16px;
+  border: 1px solid var(--om-line-strong);
+  border-radius: 2px;
+  padding: 16px 18px;
   box-sizing: border-box;
   min-width: 0;
 }
 
+/* 标题 + 分隔线，如「⊕ OreXis945 ————」 */
 .om-panel-header {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  font-weight: bold;
-  margin-bottom: 12px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--om-line-strong);
+  gap: 10px;
+  font-size: 16px;
+  margin-bottom: 14px;
   color: var(--om-text);
+}
+
+.om-panel-header > svg:first-child {
+  color: var(--om-muted);
+  flex-shrink: 0;
 }
 
 .om-panel-header .om-line {
   flex: 1;
   height: 1px;
-  background: linear-gradient(90deg, rgba(173, 216, 230, 0.3), transparent);
-  margin: 0 6px;
+  background: var(--om-line-strong);
+  margin: 0 4px 0 8px;
 }
 
 .om-panel-header small {
-  font-weight: normal;
   color: var(--om-muted);
   font-size: 12px;
 }
 
-/* 可点击条目：与首页「记录扇区」文件条目一致 */
+/* 内框：记录详情正文 */
+.om-inner {
+  border: 1px solid var(--om-line-strong);
+  background: var(--ui-fill-inner);
+  padding: 14px 16px;
+}
+
+/* 可选条目：平时为透明，悬停浅填充，选中为实色块 */
 .om-item {
   position: relative;
-  overflow: hidden;
-  background: var(--om-fill);
-  border: 1px solid rgba(173, 216, 230, 0.08);
-  border-radius: 4px;
+  background: rgba(173, 216, 230, 0.03);
+  border: 1px solid var(--om-line);
+  border-radius: 0;
   color: var(--om-text);
   font-family: inherit;
   text-align: left;
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
 }
 
-.om-item::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  left: -100%;
-  background: linear-gradient(90deg, transparent, rgba(173, 216, 230, 0.08), transparent);
-  transition: left 0.5s ease;
-  pointer-events: none;
-}
-
-.om-item:hover,
-.om-item.active {
+.om-item:hover {
   background: var(--om-fill-hover);
-  border-color: var(--om-active);
+  border-color: var(--om-line-strong);
+}
+
+.om-item.active {
+  --om-text: var(--ui-select-text);
+  --om-muted: rgba(11, 22, 51, 0.68);
+  --om-faint: rgba(11, 22, 51, 0.5);
+  --om-line-strong: rgba(11, 22, 51, 0.35);
+  --om-bar-a: rgba(11, 22, 51, 0.75);
+  --om-bar-b: rgba(11, 22, 51, 0.2);
+  background: var(--ui-select);
+  border-color: var(--ui-select);
+  color: var(--ui-select-text);
   box-shadow: var(--om-glow);
 }
 
-.om-item.slide:hover,
-.om-item.slide.active {
-  transform: translateX(4px);
-}
-
-.om-item:hover::after,
-.om-item.active::after {
-  left: 100%;
+/* 选中项左侧的强调条 */
+.om-item.slide.active::before {
+  content: '';
+  position: absolute;
+  left: -7px;
+  top: -1px;
+  bottom: -1px;
+  width: 4px;
+  background: var(--ui-select);
 }
 
 .om-btn {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 12px;
-  font-size: 13px;
+  padding: 6px 14px;
+  font-size: 14px;
   font-family: inherit;
   color: var(--om-text);
-  background: var(--om-fill);
+  background: rgba(173, 216, 230, 0.04);
   border: 1px solid var(--om-line-strong);
-  border-radius: 4px;
+  border-radius: 0;
   cursor: pointer;
-  transition: all 0.25s ease;
+  transition: background 0.2s ease, border-color 0.2s ease;
 }
 
 .om-btn:hover:not(:disabled) {
   background: var(--om-fill-hover);
-  border-color: var(--om-active);
-  box-shadow: var(--om-glow);
+  border-color: rgba(173, 216, 230, 0.6);
 }
 
 .om-btn:disabled {
@@ -116,8 +127,14 @@
 }
 
 .om-btn.primary {
-  border-color: rgba(173, 216, 230, 0.6);
-  background: rgba(173, 216, 230, 0.08);
+  background: var(--ui-select);
+  border-color: var(--ui-select);
+  color: var(--ui-select-text);
+}
+
+.om-btn.primary:hover:not(:disabled) {
+  background: var(--ui-accent);
+  color: var(--ui-select-text);
 }
 
 .om-btn.icon-only {
@@ -133,7 +150,7 @@
 }
 
 .om-dot.live {
-  background: rgba(173, 216, 230, 0.8);
+  background: var(--ui-accent);
   box-shadow: 0 0 10px rgba(173, 216, 230, 0.8);
   animation: om-pulse 1.5s ease-in-out infinite;
 }
@@ -143,66 +160,65 @@
   50% { opacity: 0.3; }
 }
 
+/* 斜条纹进度条 */
 .om-bar {
-  height: 4px;
+  height: 6px;
   background: rgba(173, 216, 230, 0.08);
-  border-radius: 2px;
+  border: 1px solid var(--om-line);
   overflow: hidden;
 }
 
 .om-bar > i {
   display: block;
   height: 100%;
-  background: linear-gradient(90deg, rgba(173, 216, 230, 0.4), rgba(173, 216, 230, 0.9));
-  box-shadow: 0 0 6px rgba(173, 216, 230, 0.5);
+  background: repeating-linear-gradient(115deg, var(--om-bar-a) 0 4px, var(--om-bar-b) 4px 7px);
   transition: width 0.4s ease;
 }
 
 .om-bar.hazard > i {
-  background: repeating-linear-gradient(135deg, rgba(173, 216, 230, 0.85) 0 4px, rgba(173, 216, 230, 0.35) 4px 8px);
+  background: var(--om-bar-a);
+  box-shadow: 0 0 8px rgba(173, 216, 230, 0.5);
 }
 
 .om-chip {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 3px 9px;
-  font-size: 12px;
+  padding: 4px 10px;
+  font-size: 13px;
   font-family: inherit;
   color: var(--om-muted);
   background: transparent;
   border: 1px solid var(--om-line-strong);
-  border-radius: 4px;
+  border-radius: 0;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .om-chip:hover {
   color: var(--om-text);
-  border-color: rgba(173, 216, 230, 0.5);
+  background: var(--om-fill-hover);
 }
 
 .om-chip.active {
-  color: var(--om-text);
-  border-color: var(--om-active);
-  background: var(--om-fill-hover);
-  box-shadow: var(--om-glow);
+  color: var(--ui-select-text);
+  background: var(--ui-select);
+  border-color: var(--ui-select);
 }
 
 .om-input {
   font-family: inherit;
-  font-size: 12px;
+  font-size: 13px;
   color: var(--om-text);
-  background: rgba(0, 0, 0, 0.2);
+  background: rgba(5, 10, 28, 0.5);
   border: 1px solid var(--om-line-strong);
-  border-radius: 4px;
+  border-radius: 0;
   padding: 5px 8px;
   outline: none;
 }
 
 .om-input:focus {
-  border-color: var(--om-active);
-  box-shadow: var(--om-glow);
+  border-color: var(--ui-accent);
 }
 
 .om-muted {
@@ -211,7 +227,7 @@
 
 .om-empty {
   color: var(--om-muted);
-  font-size: 12px;
+  font-size: 13px;
   text-align: center;
   padding: 20px;
 }
@@ -220,15 +236,14 @@
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--om-muted);
   border: 1px solid var(--om-line-strong);
-  border-radius: 3px;
   padding: 0 5px;
   line-height: 18px;
 }
 
 .om-tag.strong {
   color: var(--om-text);
-  border-color: rgba(173, 216, 230, 0.6);
+  border-color: currentColor;
 }

@@ -47,9 +47,13 @@ button {
 button:hover {
   border-color: #646cff;
 }
-button:focus,
+/* 鼠标点击不显示焦点框，键盘导航时显示与界面一致的细框 */
+button:focus {
+  outline: none;
+}
 button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
+  outline: 1px solid rgba(214, 240, 250, 0.9);
+  outline-offset: 2px;
 }
 
 .card {
@@ -74,4 +78,20 @@ button:focus-visible {
   button {
     background-color: #f9f9f9;
   }
+}
+
+/* δ-me13 界面令牌 —— 参照游戏内「如我所书」界面：
+   DIN 风格无衬线字体、直角细边框、选中项为实色填充块。 */
+:root {
+  --ui-font: 'Bahnschrift', 'DIN Alternate', 'DIN Pro', 'HarmonyOS Sans SC', 'PingFang SC', 'Microsoft YaHei', 'Noto Sans SC', system-ui, sans-serif;
+  --ui-text: rgba(214, 236, 246, 0.92);
+  --ui-muted: rgba(173, 216, 230, 0.62);
+  --ui-faint: rgba(173, 216, 230, 0.38);
+  --ui-line: rgba(173, 216, 230, 0.22);
+  --ui-line-soft: rgba(173, 216, 230, 0.12);
+  --ui-fill: rgba(173, 216, 230, 0.04);
+  --ui-fill-inner: rgba(173, 216, 230, 0.07);
+  --ui-select: rgba(196, 230, 244, 0.9);
+  --ui-select-text: #0b1633;
+  --ui-accent: rgba(214, 240, 250, 1);
 }

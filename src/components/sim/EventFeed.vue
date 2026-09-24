@@ -70,7 +70,7 @@ const entries = computed(() => {
 .agent-filter { display: flex; align-items: center; gap: 8px; font-size: 12px; margin-bottom: 8px; color: var(--om-muted); }
 .agent-filter b { color: var(--om-text); }
 .entries { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
-.entry { display: grid; grid-template-columns: 64px 16px 1fr; gap: 8px; align-items: start; font-size: 12px; line-height: 1.55; padding: 4px 6px; border-left: 2px solid transparent; }
+.entry { display: grid; grid-template-columns: 64px 16px 1fr; gap: 8px; align-items: start; font-size: 13px; line-height: 1.6; padding: 4px 6px; border-left: 2px solid transparent; }
 .entry:hover { background: rgba(173, 216, 230, 0.05); }
 .day { color: var(--om-faint); font-variant-numeric: tabular-nums; }
 .type-icon { margin-top: 2px; color: var(--om-muted); }

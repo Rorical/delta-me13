@@ -156,25 +156,25 @@ const detail = computed(() => {
 .search { width: 150px; font-weight: normal; }
 .chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
 .count { opacity: 0.6; }
-.rows { display: flex; flex-direction: column; gap: 6px; }
+.rows { display: flex; flex-direction: column; gap: 6px; padding-left: 8px; border-left: 3px solid rgba(173, 216, 230, 0.18); }
 .row { padding: 8px 10px; display: flex; flex-direction: column; gap: 4px; }
 .row.down { opacity: 0.5; }
 .row-main { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; position: relative; z-index: 1; }
 .kind-icon { opacity: 0.7; }
-.name { font-weight: bold; font-size: 13px; }
+.name { font-weight: 600; font-size: 15px; }
 .sub { font-size: 11px; color: var(--om-muted); }
 .row-meta { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--om-muted); }
 .loc { display: inline-flex; align-items: center; gap: 3px; min-width: 96px; }
 .hp { flex: 1; max-width: 160px; }
 .hp-text { font-variant-numeric: tabular-nums; }
 .thought { font-size: 11px; color: var(--om-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.detail { align-self: start; position: sticky; top: 0; max-height: 75vh; overflow-y: auto; font-size: 12px; }
+.detail { align-self: start; position: sticky; top: 0; max-height: 75vh; overflow-y: auto; font-size: 13px; }
 .sub-line { color: var(--om-muted); margin: -4px 0 10px; }
 .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 10px; }
-.stat-grid div { border: 1px solid rgba(173, 216, 230, 0.08); border-radius: 4px; padding: 4px 6px; display: flex; flex-direction: column; min-width: 0; }
+.stat-grid div { border: 1px solid var(--om-line-strong); background: var(--ui-fill-inner); padding: 4px 6px; display: flex; flex-direction: column; min-width: 0; }
 .stat-grid label { font-size: 10px; color: var(--om-muted); }
 .stat-grid span { overflow: hidden; text-overflow: ellipsis; }
-.quote { border-left: 2px solid rgba(173, 216, 230, 0.6); padding-left: 8px; margin: 8px 0 12px; }
+.quote { border: 1px solid var(--om-line-strong); background: var(--ui-fill-inner); padding: 10px 12px; margin: 8px 0 12px; font-size: 14px; }
 dl { display: grid; grid-template-columns: 44px 1fr; gap: 4px 8px; margin: 0 0 8px; }
 dt { color: var(--om-muted); }
 dd { margin: 0; word-break: break-all; }

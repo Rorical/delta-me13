@@ -1,76 +1,41 @@
 <template>
   <div class="top-section">
-    <div class="section-label">
-      <span class="label-text">实验档案</span>
-      <div class="label-underline"></div>
-    </div>
-    <div class="progress-status">
-      <span class="status-indicator"></span>
-      进程：再创世
-    </div>
+    <h2 class="section-title">实验档案</h2>
+    <div class="title-rule"></div>
   </div>
 </template>
 
 <script setup lang="ts">
-// No props or reactive data needed for this component
+// 纯展示组件
 </script>
 
 <style scoped>
 .top-section {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 30px;
+  gap: 24px;
+  margin-bottom: 18px;
+  padding-left: 16%;
 }
 
-.section-label {
-  position: relative;
-  font-size: 18px;
-  font-weight: bold;
-  color: rgba(173, 216, 230, 0.9);
-  padding-bottom: 5px;
+.section-title {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  color: var(--ui-text);
+  text-shadow: 0 0 12px rgba(173, 216, 230, 0.35);
+  white-space: nowrap;
 }
 
-.label-text {
-  position: relative;
-  z-index: 2;
+.title-rule {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, var(--ui-line), rgba(173, 216, 230, 0.05));
 }
 
-.label-underline {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  width: 100%;
-  height: 2px;
-  background: linear-gradient(90deg, rgba(173, 216, 230, 0.6), transparent);
-  animation: underline-pulse 2s ease-in-out infinite;
+@media (max-width: 768px) {
+  .top-section { padding-left: 0; }
+  .section-title { font-size: 20px; }
 }
-
-@keyframes underline-glow {
-  0%, 100% { opacity: 0.5; }
-  50% { opacity: 1; }
-}
-
-.progress-status {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  color: rgba(173, 216, 230, 0.7);
-}
-
-.status-indicator {
-  width: 8px;
-  height: 8px;
-  background: rgba(173, 216, 230, 0.8);
-  border-radius: 50%;
-  animation: status-pulse 1.5s ease-in-out infinite;
-  box-shadow: 0 0 10px rgba(173, 216, 230, 0.8);
-}
-
-@keyframes status-blink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.3; }
-}
-</style> 
+</style>
