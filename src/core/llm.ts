@@ -18,7 +18,7 @@ export interface DecisionRequest {
 const TOOL_NAME = 'act';
 const JSON_FORMAT = '{"thought":"...","actions":[{"type":"...",...}]}';
 
-function extractJson(text: string): any {
+export function extractJson(text: string): any {
   const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
   const body = fenced ? fenced[1] : text;
   const start = body.search(/[[{]/);
@@ -27,13 +27,13 @@ function extractJson(text: string): any {
   return JSON.parse(body.slice(start, end + 1));
 }
 
-function parseArgs(args: unknown): any {
+export function parseArgs(args: unknown): any {
   if (typeof args === 'string') return JSON.parse(args);
   return args;
 }
 
 // 请求失败是否说明端点不支持工具调用（此时降级为纯文本JSON）
-function looksLikeToolUnsupported(err: any): boolean {
+export function looksLikeToolUnsupported(err: any): boolean {
   const status = err?.status ?? err?.response?.status;
   const message = String(err?.message ?? '');
   return status === 422 || ((status === 400 || status === 404) && /tool|function/i.test(message));

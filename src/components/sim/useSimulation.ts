@@ -1,9 +1,13 @@
-import { markRaw, onMounted, onUnmounted, ref, type Component } from 'vue';
+import { markRaw, onMounted, onUnmounted, reactive, ref, shallowRef, toRaw, type Component } from 'vue';
 import { Crown, Skull, Sparkles, User } from 'lucide-vue-next';
 import { OmphalosSimulation, DEFAULT_SIM_CONFIG, type SimConfig, type SimSnapshot } from '../../core/llmSimulation';
+import type { Play } from '../../core/theater';
+import { idbGet, idbSet } from '../../services/worldStorage';
 
 const CONFIG_KEY = 'omphalos-sim-config';
-const WORLD_KEY = 'omphalos-world';
+const LEGACY_WORLD_KEY = 'omphalos-world';
+const WORLD_KEY = 'world';
+const THEATER_KEY = 'theaters';
 
 function loadConfig(): SimConfig {
   try {
@@ -20,46 +24,62 @@ export function saveSimConfig(config: SimConfig) {
 // 仿真实例是全局单例：切换左侧文件不会中断正在运行的世界。
 // 它不放进 Vue 的响应式系统（markRaw），UI 通过节流后的 tick 刷新派生视图。
 let instance: OmphalosSimulation | null = null;
+let ready: Promise<void> = Promise.resolve();
 
 export function getSimulation(): OmphalosSimulation {
   if (!instance) {
     const sim = markRaw(new OmphalosSimulation(loadConfig()));
-    const snap = loadWorld();
-    if (snap && !sim.restore(snap)) clearWorld();
-    sim.onCheckpoint = () => saveWorld(sim);
     instance = sim;
+    ready = loadSaved(sim).finally(() => { sim.onCheckpoint = () => void saveWorld(sim); });
   }
   return instance;
 }
 
-// ---------- 世界存档（仅保存在本机浏览器） ----------
-function loadWorld(): SimSnapshot | null {
+/** 本地存档读取完毕（启动仿真前应等待） */
+export function simReady(): Promise<void> {
+  getSimulation();
+  return ready;
+}
+
+// ---------- 本地存档（IndexedDB，仅保存在本机浏览器） ----------
+export const persistence = reactive({ lastSaved: 0, error: '' });
+
+// 小剧场列表：浅层响应，替换整个数组以触发更新（深层代理无法写入 IndexedDB）
+export const theaters = shallowRef<Play[]>([]);
+
+async function loadSaved(sim: OmphalosSimulation) {
   try {
-    const raw = localStorage.getItem(WORLD_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
+    let snap = await idbGet<SimSnapshot>(WORLD_KEY);
+    if (!snap) {
+      // 旧版本把存档放在 localStorage，迁移后删除
+      const legacy = localStorage.getItem(LEGACY_WORLD_KEY);
+      if (legacy) snap = JSON.parse(legacy);
+    }
+    if (snap && sim.restore(snap)) persistence.lastSaved = snap.savedAt ?? 0;
+    localStorage.removeItem(LEGACY_WORLD_KEY);
+    theaters.value = (await idbGet<Play[]>(THEATER_KEY)) ?? [];
+  } catch (err: any) {
+    persistence.error = `读取存档失败：${String(err?.message ?? err).slice(0, 80)}`;
   }
 }
 
-function clearWorld() {
-  try { localStorage.removeItem(WORLD_KEY); } catch { /* 忽略 */ }
+export async function saveWorld(sim: OmphalosSimulation) {
+  try {
+    const snap = sim.snapshot();
+    await idbSet(WORLD_KEY, snap);
+    persistence.lastSaved = snap.savedAt;
+    persistence.error = '';
+  } catch (err: any) {
+    persistence.error = `自动存档失败：${String(err?.message ?? err).slice(0, 80)}`;
+  }
 }
 
-function saveWorld(sim: OmphalosSimulation) {
-  const snap = sim.snapshot();
+export async function saveTheaters(list: Play[]) {
+  theaters.value = list;
   try {
-    localStorage.setItem(WORLD_KEY, JSON.stringify(snap));
-  } catch {
-    // 超出存储配额：丢弃思考内容与较早的日志后重试
-    try {
-      const s = snap.state;
-      const slim = {
-        ...snap,
-        state: { ...s, logs: s.logs.slice(-300), messages: s.messages.slice(-120), ai: { ...s.ai, recent: s.ai.recent.map(r => ({ ...r, reasoning: undefined })) } }
-      };
-      localStorage.setItem(WORLD_KEY, JSON.stringify(slim));
-    } catch { /* 放弃本次存档 */ }
+    await idbSet(THEATER_KEY, list.map(p => toRaw(p)));
+  } catch (err: any) {
+    persistence.error = `小剧场保存失败：${String(err?.message ?? err).slice(0, 80)}`;
   }
 }
 

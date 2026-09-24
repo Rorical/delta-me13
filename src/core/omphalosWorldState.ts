@@ -185,7 +185,15 @@ export interface OmphalosWorldState {
   ending?: { era: number; day: number; summary: string };
 }
 
+// 完整的世界编年史：不随界面日志一起截断，跨纪元累积，用于导出与小剧场
+export interface Chronicle {
+  logs: WorldLog[];
+  messages: ChatMessage[];
+}
+
 export const LOG_LIMIT = 800;
+export const CHRONICLE_LOG_LIMIT = 60000;
+export const CHRONICLE_MESSAGE_LIMIT = 20000;
 export const MESSAGE_LIMIT = 300;
 export const AI_RECORD_LIMIT = 80;
 

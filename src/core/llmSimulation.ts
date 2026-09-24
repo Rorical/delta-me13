@@ -7,7 +7,7 @@ import { ALLOWED_ACTIONS, type Action, type ActionType, type Decision } from './
 import { createWorld } from './config/worldFactory';
 import type { NPCSeed } from './agent/npcProfiles';
 import {
-  type AgentStatus, type OmphalosWorldState, returnedEmberCount, isEnemy, isHeir, isNpc, isTitan
+  type AgentStatus, type Chronicle, type OmphalosWorldState, returnedEmberCount, isEnemy, isHeir, isNpc, isTitan
 } from './omphalosWorldState';
 
 export interface SimConfig {
@@ -29,12 +29,13 @@ export const DEFAULT_SIM_CONFIG: SimConfig = {
 export type SimStatus = 'idle' | 'running' | 'paused' | 'stopping' | 'ended';
 
 // 本地存档：每天结束时保存，刷新页面后恢复
-export const SNAPSHOT_VERSION = 1;
+export const SNAPSHOT_VERSION = 2;
 
 export interface SimSnapshot {
   version: number;
   savedAt: number;
   state: OmphalosWorldState;
+  chronicle?: Chronicle;            // v2：完整编年史
   memories: Record<string, MemoryData>;
   npcSeeds: NPCSeed[];
 }
@@ -154,6 +155,7 @@ export class OmphalosSimulation {
     const { state, npcs } = createWorld({ npcCount: this.config.npcCount });
     this.npcSeeds = npcs;
     this.engine.state = state;
+    this.engine.chronicle = { logs: [], messages: [] };
     this.memories.clear();
     this.systemPrompts.clear();
     this.status = 'idle';
@@ -167,14 +169,18 @@ export class OmphalosSimulation {
   snapshot(): SimSnapshot {
     const memories: Record<string, MemoryData> = {};
     this.memories.forEach((m, id) => { memories[id] = m.toJSON(); });
-    return { version: SNAPSHOT_VERSION, savedAt: Date.now(), state: this.state, memories, npcSeeds: this.npcSeeds };
+    return { version: SNAPSHOT_VERSION, savedAt: Date.now(), state: this.state, chronicle: this.engine.chronicle, memories, npcSeeds: this.npcSeeds };
   }
 
   restore(snap: SimSnapshot): boolean {
     if (this.status === 'running' || this.status === 'stopping') return false;
     const st = snap?.state;
-    if (snap?.version !== SNAPSHOT_VERSION || !st?.agents || !st.cities || !st.embers || !st.phase || !st.imprint) return false;
+    if (!snap || !(snap.version >= 1 && snap.version <= SNAPSHOT_VERSION) || !st?.agents || !st.cities || !st.embers || !st.phase || !st.imprint) return false;
     this.engine.state = st;
+    const ch = snap.chronicle;
+    this.engine.chronicle = ch && Array.isArray(ch.logs) && Array.isArray(ch.messages)
+      ? ch
+      : { logs: [...(st.logs ?? [])], messages: [...(st.messages ?? [])] };
     this.engine.syncSequences();
     this.npcSeeds = Array.isArray(snap.npcSeeds) ? snap.npcSeeds : this.npcSeeds;
     this.memories = new Map(Object.entries(snap.memories ?? {}).map(([id, d]) => [id, AgentMemory.from(d)]));

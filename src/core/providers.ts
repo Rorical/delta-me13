@@ -35,6 +35,7 @@ export interface CompletionRequest {
   tool?: ToolSpec;
   signal?: AbortSignal;
   timeoutMs: number;
+  maxTokens?: number;        // 长文本输出（如小剧场）时提高上限
 }
 
 export interface CompletionResult {
@@ -170,6 +171,8 @@ class OpenAIChatAdapter implements ProviderAdapter {
       ],
       ...this.extraBody()
     };
+    // DeepSeek 默认输出上限较低，长文本时显式放宽
+    if (req.maxTokens && this.kind === 'deepseek') body.max_tokens = req.maxTokens;
     if (req.tool) {
       body.tools = [{ type: 'function', function: { name: req.tool.name, description: req.tool.description, parameters: req.tool.schema } }];
       body.tool_choice = this.toolChoice(req.tool);
@@ -312,7 +315,7 @@ class AnthropicAdapter implements ProviderAdapter {
     const thinkingOn = this.s.reasoning !== 'off' && (adaptive || supportsBudgetThinking(this.s.model));
     const body: Record<string, unknown> = {
       model: this.s.model,
-      max_tokens: thinkingOn ? 16000 : 4096,
+      max_tokens: Math.max(req.maxTokens ?? 0, thinkingOn ? 16000 : 4096),
       system: req.system,
       messages: [{ role: 'user', content: req.user }]
     };

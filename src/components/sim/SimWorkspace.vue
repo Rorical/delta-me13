@@ -15,7 +15,8 @@
         <button class="om-btn" :disabled="busy || view.ended" @click="step" title="仅推进一天"><StepForward :size="14" /> 单步</button>
         <button class="om-btn" :disabled="status === 'idle' || status === 'ended'" @click="sim.stop()"><Square :size="14" /> 停止</button>
         <button class="om-btn" :disabled="busy" @click="reset"><RotateCcw :size="14" /> 重置</button>
-        <button class="om-btn icon-only" :class="{ primary: showSettings }" @click="showSettings = !showSettings" title="仿真参数"><Settings :size="15" /></button>
+        <button class="om-btn icon-only" :class="{ primary: showArchive }" @click="showArchive = !showArchive; showSettings = false" title="存档：导出 / 导入世界"><Archive :size="15" /></button>
+        <button class="om-btn icon-only" :class="{ primary: showSettings }" @click="showSettings = !showSettings; showArchive = false" title="仿真参数"><Settings :size="15" /></button>
       </div>
     </header>
 
@@ -49,6 +50,19 @@
       <label>居民数量 <input type="range" min="0" max="20" v-model.number="cfg.npcCount" /> <b>{{ cfg.npcCount }}</b></label>
       <label class="check"><input type="checkbox" v-model="cfg.replyPhase" /> 被搭话者当日回应（对话更生动，调用更多）</label>
       <p class="om-muted hint">每天约 {{ estimatedCalls }} 次模型调用；居民数量在重置后生效。世界在每天结束时自动存档于本机浏览器，刷新页面后可继续。</p>
+    </section>
+
+    <section v-if="showArchive" class="om-panel archive">
+      <div class="archive-info">
+        <span>自动存档：{{ persistence.lastSaved ? new Date(persistence.lastSaved).toLocaleString() : '尚未存档' }}（每天结束时保存在本机浏览器）</span>
+        <span class="om-muted">编年史 {{ archiveStats.logs.toLocaleString() }} 条记录 · {{ archiveStats.messages.toLocaleString() }} 句对话 · 小剧场 {{ archiveStats.plays }} 出</span>
+        <span v-if="persistence.error" class="om-muted"><AlertTriangle :size="12" /> {{ persistence.error }}</span>
+      </div>
+      <div class="archive-actions">
+        <button class="om-btn primary" @click="exportWorld" title="完整导出世界状态、编年史、角色记忆与小剧场"><Download :size="14" /> 导出世界档案</button>
+        <button class="om-btn" :disabled="busy" @click="importWorld" title="从档案文件恢复世界"><Upload :size="14" /> 导入世界档案</button>
+        <button class="om-btn" @click="exportChronicle" title="导出可阅读的编年史"><BookOpen :size="14" /> 导出编年史（Markdown）</button>
+      </div>
     </section>
 
     <!-- 主体：名册 | 地图 + 日志 | 详情 -->
@@ -85,6 +99,7 @@
           <div class="scroll" :class="{ reading: maximized === 'feed' }">
             <EventFeed v-if="feedTab === 'events'" :state="sim.state" :tick="tick" :agent-id="selectedAgent" @clear-agent="selectedAgent = ''" />
             <ChatFeed v-else-if="feedTab === 'chat'" :state="sim.state" :tick="tick" :agent-id="selectedAgent" @agent="selectAgent" />
+            <TheaterPanel v-else-if="feedTab === 'theater'" :sim="sim" :tick="tick" />
             <AiLog v-else :state="sim.state" :tick="tick" />
           </div>
         </section>
@@ -111,7 +126,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
 import {
-  Activity, AlertTriangle, ArrowLeft, Cpu, Flame, Info, Infinity as InfinityIcon, Map as MapIcon, Maximize2, MessageSquare,
+  Activity, AlertTriangle, Archive, ArrowLeft, BookOpen, Clapperboard, Download, Upload, Cpu, Flame, Info, Infinity as InfinityIcon, Map as MapIcon, Maximize2, MessageSquare,
   Minimize2, Pause, Play, RotateCcw, ScanSearch, ScrollText, Settings, Skull, Square, StepForward, Sun, Sunrise, Swords, Users, Waves
 } from 'lucide-vue-next';
 import { useOpenAIStore } from '../../stores/openAIStore';
@@ -127,7 +142,10 @@ import EventFeed from './EventFeed.vue';
 import ChatFeed from './ChatFeed.vue';
 import AiLog from './AiLog.vue';
 import EmberBoard from './EmberBoard.vue';
-import { getSimulation, saveSimConfig, tideLabel, useSimTick } from './useSimulation';
+import TheaterPanel from './TheaterPanel.vue';
+import { archiveFilename, buildArchive, chronicleToMarkdown, parseArchive } from '../../core/archive';
+import { downloadFile, pickTextFile } from '../../services/worldStorage';
+import { getSimulation, persistence, saveSimConfig, saveTheaters, saveWorld, simReady, theaters, tideLabel, useSimTick } from './useSimulation';
 import './sim.css';
 
 const emit = defineEmits<{ (e: 'close'): void }>();
@@ -139,12 +157,14 @@ const tick = useSimTick(sim);
 const showSettings = ref(false);
 const selectedCity = ref('奥赫玛');
 const selectedAgent = ref('');
-const feedTab = ref<'events' | 'chat' | 'ai'>('events');
+const feedTab = ref<'events' | 'chat' | 'theater' | 'ai'>('events');
+const showArchive = ref(false);
 const sideTab = ref<'detail' | 'embers'>('detail');
 
 const feedTabs = [
   { id: 'events' as const, label: '事件', icon: ScrollText },
   { id: 'chat' as const, label: '对话', icon: MessageSquare },
+  { id: 'theater' as const, label: '小剧场', icon: Clapperboard },
   { id: 'ai' as const, label: '因果矩阵', icon: Cpu }
 ];
 
@@ -225,8 +245,44 @@ const ensureConnected = (): boolean => {
   return true;
 };
 
-const start = () => { if (ensureConnected()) void sim.start(); };
-const step = () => { if (ensureConnected()) void sim.step(); };
+const start = async () => { await simReady(); if (ensureConnected()) void sim.start(); };
+const step = async () => { await simReady(); if (ensureConnected()) void sim.step(); };
+
+// ---------- 档案 ----------
+const archiveStats = computed(() => {
+  void tick.value;
+  return { logs: sim.engine.chronicle.logs.length, messages: sim.engine.chronicle.messages.length, plays: theaters.value.length };
+});
+
+const exportWorld = () => {
+  downloadFile(archiveFilename(sim.state, 'world', 'json'), JSON.stringify(buildArchive(sim, theaters.value)));
+};
+
+const exportChronicle = () => {
+  downloadFile(archiveFilename(sim.state, 'chronicle', 'md'), chronicleToMarkdown(sim.engine.chronicle, sim.state), 'text/markdown');
+};
+
+const importWorld = async () => {
+  if (busy.value) return;
+  const file = await pickTextFile();
+  if (!file) return;
+  try {
+    const { snapshot, theaters: plays } = parseArchive(file.text);
+    const st = snapshot?.state;
+    const desc = st ? `第${st.era}纪元第${st.day}天` : '未知进度';
+    if (!window.confirm(`用「${file.name}」（${desc}）替换当前世界？当前世界会被覆盖。`)) return;
+    await simReady();
+    if (!sim.restore(snapshot)) throw new Error('档案内容不完整或版本不兼容');
+    await saveWorld(sim);
+    // 小剧场按 id 合并：保留本地已有的，补上档案中的
+    const known = new Set(theaters.value.map(p => p.id));
+    await saveTheaters([...theaters.value, ...plays.filter(p => !known.has(p.id))].sort((a, b) => b.createdAt - a.createdAt));
+    selectedAgent.value = '';
+    notificationService.showSuccess(`已恢复到${desc}`, '导入完成');
+  } catch (err: any) {
+    notificationService.showError(String(err?.message ?? err), '导入失败');
+  }
+};
 const reset = () => {
   if (sim.state.totalDays > 0 && !window.confirm('重置会清除当前世界及其本地存档，确定吗？')) return;
   sim.reset();
@@ -288,6 +344,10 @@ onUnmounted(() => {
 .kpi small { grid-area: sub; font-size: 11px; color: var(--om-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .kpi .om-bar { grid-area: bar; margin-top: 3px; }
 
+.archive { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; font-size: 13px; }
+.archive-info { display: flex; flex-direction: column; gap: 2px; }
+.archive-info span { display: inline-flex; align-items: center; gap: 5px; }
+.archive-actions { display: flex; flex-wrap: wrap; gap: 6px; }
 .notice.banner { align-items: flex-start; font-size: 13px; line-height: 1.7; }
 .notice.banner b { display: block; font-size: 15px; }
 .notice.banner small { display: block; color: var(--om-muted); }

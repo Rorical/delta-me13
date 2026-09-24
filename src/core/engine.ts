@@ -1,8 +1,8 @@
 // 世界引擎：动作结算、世界演化（黑潮、事件、敌对单位、最终之战、纪元轮回）。不包含任何模型调用。
 import {
   type AgentStatus, type CityState, type EnemyStatus, type EnemyType, type HeirStatus, type LogType,
-  type OmphalosWorldState, type TitanStatus, type WorldLog,
-  LOG_LIMIT, MESSAGE_LIMIT, cityDistance, collectedEmberCount, returnedEmberCount,
+  type OmphalosWorldState, type TitanStatus, type WorldLog, type ChatMessage, type Chronicle,
+  LOG_LIMIT, MESSAGE_LIMIT, CHRONICLE_LOG_LIMIT, CHRONICLE_MESSAGE_LIMIT, cityDistance, collectedEmberCount, returnedEmberCount,
   isEnemy, isHeir, isNpc, isTitan, nextHop
 } from './omphalosWorldState';
 import type { Action } from './agent/actions';
@@ -22,6 +22,11 @@ type Listener = () => void;
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 const round1 = (v: number) => Math.round(v * 10) / 10;
 
+function capPush<T>(list: T[], item: T, limit: number) {
+  list.push(item);
+  if (list.length > limit) list.splice(0, list.length - limit);
+}
+
 export const FLAMETHIEF_ID = 'flamethief';
 export const IRONTOMB_ID = 'irontomb';
 const FINALE_DAY_LIMIT = 40;
@@ -33,12 +38,16 @@ export class WorldEngine {
   readonly inbox = new Map<string, string[]>();
   onEraEnd?: (outcome: EraOutcome, reason: string) => void;
 
+  /** 完整编年史（界面上的 state.logs 只保留最近一段） */
+  chronicle: Chronicle = { logs: [], messages: [] };
+
   constructor(public state: OmphalosWorldState, private notify: Listener = () => {}) {}
 
   // 从存档恢复后，让日志 / 消息编号接着已有的继续
   syncSequences() {
-    this.logSeq = this.state.logs.reduce((m, l) => Math.max(m, l.id), 0);
-    this.msgSeq = this.state.messages.reduce((m, x) => Math.max(m, x.id), 0);
+    const last = <T extends { id: number }>(a: T[]) => a.reduce((m, x) => Math.max(m, x.id), 0);
+    this.logSeq = Math.max(last(this.state.logs), last(this.chronicle.logs));
+    this.msgSeq = Math.max(last(this.state.messages), last(this.chronicle.messages));
   }
 
   // ---------- 查询 ----------
@@ -125,8 +134,10 @@ export class WorldEngine {
   // ---------- 日志 ----------
   log(type: LogType, message: string, importance: WorldLog['importance'] = 'medium', extra: Partial<WorldLog> = {}) {
     const logs = this.state.logs;
-    logs.push({ id: ++this.logSeq, day: this.state.day, era: this.state.era, type, message, importance, ...extra });
+    const entry: WorldLog = { id: ++this.logSeq, day: this.state.day, era: this.state.era, type, message, importance, ...extra };
+    logs.push(entry);
     if (logs.length > LOG_LIMIT) logs.splice(0, logs.length - LOG_LIMIT);
+    capPush(this.chronicle.logs, entry, CHRONICLE_LOG_LIMIT);
     this.notify();
   }
 
@@ -570,8 +581,10 @@ export class WorldEngine {
 
   pushMessage(from: AgentStatus, to: AgentStatus, content: string) {
     const msgs = this.state.messages;
-    msgs.push({ id: ++this.msgSeq, day: this.state.day, era: this.state.era, from: from.id, to: to.id, content, location: from.location });
+    const msg: ChatMessage = { id: ++this.msgSeq, day: this.state.day, era: this.state.era, from: from.id, to: to.id, content, location: from.location };
+    msgs.push(msg);
     if (msgs.length > MESSAGE_LIMIT) msgs.splice(0, msgs.length - MESSAGE_LIMIT);
+    capPush(this.chronicle.messages, msg, CHRONICLE_MESSAGE_LIMIT);
     from.counters.chats++;
     this.relate(to, from, 2);
     if (isTitan(to) && isHeir(from)) to.respect[from.id] = (to.respect[from.id] ?? 0) + 5;
