@@ -57,22 +57,28 @@
       </aside>
 
       <main class="center">
-        <section class="om-panel map-panel">
+        <section class="om-panel map-panel" :class="{ maximized: maximized === 'map' }">
           <div class="om-panel-header">
             <MapIcon :size="16" /> 世界 <div class="om-line"></div>
             <small>点击城邦查看详情</small>
+            <button class="om-btn icon-only" @click="toggleMax('map')" :title="maximized === 'map' ? '还原 (Esc)' : '放大'">
+              <component :is="maximized === 'map' ? Minimize2 : Maximize2" :size="14" />
+            </button>
           </div>
           <WorldMap class="map" fill :state="sim.state" :tick="tick" :selected="focusCity" @select="selectCity" />
         </section>
 
-        <section class="om-panel feed-panel">
+        <section class="om-panel feed-panel" :class="{ maximized: maximized === 'feed' }">
           <div class="tabs">
             <button v-for="t in feedTabs" :key="t.id" class="om-chip" :class="{ active: feedTab === t.id }" @click="feedTab = t.id">
               <component :is="t.icon" :size="13" /> {{ t.label }}
             </button>
             <div class="om-line"></div>
+            <button class="om-btn icon-only" @click="toggleMax('feed')" :title="maximized === 'feed' ? '还原 (Esc)' : '放大'">
+              <component :is="maximized === 'feed' ? Minimize2 : Maximize2" :size="14" />
+            </button>
           </div>
-          <div class="scroll">
+          <div class="scroll" :class="{ reading: maximized === 'feed' }">
             <EventFeed v-if="feedTab === 'events'" :state="sim.state" :tick="tick" :agent-id="selectedAgent" @clear-agent="selectedAgent = ''" />
             <ChatFeed v-else-if="feedTab === 'chat'" :state="sim.state" :tick="tick" :agent-id="selectedAgent" @agent="selectAgent" />
             <AiLog v-else :state="sim.state" :tick="tick" />
@@ -101,8 +107,8 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
 import {
-  Activity, AlertTriangle, ArrowLeft, Cpu, Flame, Info, Infinity as InfinityIcon, Map as MapIcon, MessageSquare,
-  Pause, Play, RotateCcw, ScanSearch, ScrollText, Settings, Square, StepForward, Sun, Users, Waves
+  Activity, AlertTriangle, ArrowLeft, Cpu, Flame, Info, Infinity as InfinityIcon, Map as MapIcon, Maximize2, MessageSquare,
+  Minimize2, Pause, Play, RotateCcw, ScanSearch, ScrollText, Settings, Square, StepForward, Sun, Users, Waves
 } from 'lucide-vue-next';
 import { useOpenAIStore } from '../../stores/openAIStore';
 import { notificationService } from '../../services/notificationService';
@@ -209,8 +215,16 @@ const reset = () => {
   selectedAgent.value = '';
 };
 
+// 地图或日志面板可放大到整个主体区域；Esc 先还原面板，再退出工作台
+const maximized = ref<'' | 'map' | 'feed'>('');
+const toggleMax = (panel: 'map' | 'feed') => {
+  maximized.value = maximized.value === panel ? '' : panel;
+};
+
 const onKey = (e: KeyboardEvent) => {
-  if (e.key === 'Escape') emit('close');
+  if (e.key !== 'Escape') return;
+  if (maximized.value) maximized.value = '';
+  else emit('close');
 };
 
 onMounted(() => {
@@ -266,6 +280,7 @@ onUnmounted(() => {
 .hint { grid-column: 1 / -1; margin: 0; font-size: 11px; }
 
 .ws-body {
+  position: relative;
   flex: 1;
   min-height: 0;
   display: grid;
@@ -277,6 +292,22 @@ onUnmounted(() => {
 .center { display: grid; grid-template-rows: minmax(0, 1.45fr) minmax(0, 1fr); gap: 10px; min-height: 0; }
 .scroll { flex: 1; min-height: 0; overflow-y: auto; padding-right: 4px; }
 .map { flex: 1; min-height: 0; }
+
+/* 放大：覆盖整个主体区域 */
+.maximized {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  background: #0f1530;
+  box-shadow: 0 0 0 1px var(--om-line-strong), 0 12px 40px rgba(0, 0, 0, 0.5);
+}
+.maximized .map { max-width: 1400px; width: 100%; margin: 0 auto; }
+/* 放大阅读时限制行宽，保证长文本易读 */
+.scroll.reading > * { max-width: 1100px; margin: 0 auto; }
+.scroll.reading :deep(.entry) { font-size: 15px; line-height: 1.75; padding: 6px 8px; }
+.scroll.reading :deep(.bubble-body) { font-size: 16px; }
+.scroll.reading :deep(.ai-table) { font-size: 14px; }
+.scroll.reading :deep(.reasoning) { font-size: 14px; max-height: none; }
 
 .tabs { display: flex; align-items: center; gap: 6px; margin-bottom: 12px; }
 .tabs .om-line { flex: 1; height: 1px; background: var(--om-line-strong); margin-left: 6px; }
