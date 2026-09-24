@@ -1,13 +1,10 @@
 <template>
-  <section class="om-panel feed">
-    <div class="om-panel-header">
-      <ScrollText :size="16" /> 事件日志 <div class="om-line"></div>
-      <label class="important"><input type="checkbox" v-model="importantOnly" /> 仅重要</label>
-    </div>
+  <div class="feed">
     <div class="chips">
       <button v-for="t in typeOptions" :key="t" class="om-chip" :class="{ active: activeTypes.has(t) }" @click="toggle(t)">
         <component :is="LOG_ICON[t]" :size="12" /> {{ LOG_TYPE_LABEL[t] }}
       </button>
+      <label class="important"><input type="checkbox" v-model="importantOnly" /> 仅重要</label>
     </div>
     <div v-if="agentName" class="agent-filter">
       仅显示与 <b>{{ agentName }}</b> 相关的事件
@@ -22,12 +19,12 @@
       <li v-if="!entries.length" class="om-empty">暂无事件。启动仿真后，世界的每一次心跳都会记录在此。</li>
     </ol>
     <div class="foot">显示最新 {{ entries.length }} 条 / 共 {{ total }} 条</div>
-  </section>
+  </div>
 </template>
 
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import { ScrollText, X } from 'lucide-vue-next';
+import { X } from 'lucide-vue-next';
 import type { LogType, OmphalosWorldState } from '../../core/omphalosWorldState';
 import { LOG_TYPE_LABEL } from './useSimulation';
 import { LOG_ICON } from './icons';
@@ -65,7 +62,7 @@ const entries = computed(() => {
 </script>
 
 <style scoped>
-.important { font-size: 12px; font-weight: normal; display: flex; align-items: center; gap: 4px; cursor: pointer; color: var(--om-muted); }
+.important { margin-left: auto; font-size: 12px; font-weight: normal; display: flex; align-items: center; gap: 4px; cursor: pointer; color: var(--om-muted); }
 .chips { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 10px; }
 .agent-filter { display: flex; align-items: center; gap: 8px; font-size: 12px; margin-bottom: 8px; color: var(--om-muted); }
 .agent-filter b { color: var(--om-text); }

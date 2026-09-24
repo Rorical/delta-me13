@@ -4,6 +4,11 @@
       <div class="fill" :style="{ width: progress + '%' }"></div>
       <div class="marker" :style="{ left: progress + '%' }"></div>
     </div>
+    <!-- 档案架选中组落下的光束与指示三角 -->
+    <template v-if="beam !== undefined">
+      <div class="beam" :style="{ left: beam + '%' }"></div>
+      <i class="beam-tip" :style="{ left: beam + '%' }"></i>
+    </template>
     <div class="cap">
       <svg class="spinner" viewBox="0 0 24 24" aria-hidden="true">
         <circle cx="12" cy="12" r="9" class="ring-bg" />
@@ -16,11 +21,12 @@
 </template>
 
 <script setup lang="ts">
-withDefaults(defineProps<{ progress: number; label?: string }>(), { label: '进程：再创世…' });
+withDefaults(defineProps<{ progress: number; label?: string; beam?: number }>(), { label: '进程：再创世…' });
 </script>
 
 <style scoped>
 .progress-section {
+  position: relative;
   display: flex;
   align-items: stretch;
   height: 34px;
@@ -55,6 +61,27 @@ withDefaults(defineProps<{ progress: number; label?: string }>(), { label: '进�
   background: var(--ui-accent);
   box-shadow: 0 0 8px var(--ui-accent);
   transition: left 0.3s ease;
+}
+
+.beam {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: rgba(236, 248, 253, 0.9);
+  box-shadow: 0 0 6px rgba(173, 216, 230, 0.9);
+  transition: left 0.45s ease;
+  z-index: 2;
+}
+
+.beam-tip {
+  position: absolute;
+  bottom: -16px;
+  margin-left: -8px;
+  border: 8px solid transparent;
+  border-top: none;
+  border-bottom-color: rgba(236, 248, 253, 0.95);
+  transition: left 0.45s ease;
 }
 
 .cap {

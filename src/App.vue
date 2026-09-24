@@ -42,7 +42,7 @@
         />
 
         <!-- Progress Bar -->
-        <ProgressBar :progress="store.progress" />
+        <ProgressBar :progress="store.progress" :beam="groupCenterPercent(store.selectedFolder, store.folders.length)" />
 
         <!-- Bottom Section -->
         <div class="bottom-section">
@@ -74,6 +74,7 @@ import Header from './components/Header.vue'
 import TopSection from './components/TopSection.vue'
 import FoldersSection from './components/FoldersSection.vue'
 import ProgressBar from './components/ProgressBar.vue'
+import { groupCenterPercent } from './components/archiveRack'
 import FilePanel from './components/FilePanel.vue'
 import ContentPanel from './components/ContentPanel.vue'
 import { notificationService } from './services/notificationService'

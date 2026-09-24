@@ -1,5 +1,5 @@
 <template>
-  <div class="world-map">
+  <div class="world-map" :class="{ fill }">
     <svg viewBox="0 0 106 78" class="map-svg" role="img" aria-label="翁法罗斯地图">
       <defs>
         <pattern id="om-grid" width="6" height="6" patternUnits="userSpaceOnUse">
@@ -45,7 +45,7 @@ import type { OmphalosWorldState, TitanStatus } from '../../core/omphalosWorldSt
 import { getCityEdges, RECREATION_SITE } from '../../core/config/cities';
 import { tideAlpha } from './useSimulation';
 
-const props = defineProps<{ state: OmphalosWorldState; tick: number; selected?: string }>();
+const props = defineProps<{ state: OmphalosWorldState; tick: number; selected?: string; fill?: boolean }>();
 defineEmits<{ (e: 'select', id: string): void }>();
 
 const edges = getCityEdges();
@@ -70,6 +70,8 @@ const cityList = computed(() => {
 
 <style scoped>
 .world-map { display: flex; flex-direction: column; gap: 8px; }
+.world-map.fill { height: 100%; }
+.world-map.fill .map-svg { flex: 1; min-height: 0; height: 100%; max-height: none; }
 .map-svg { width: 100%; max-height: 480px; border: 1px solid var(--ui-line); background: rgba(0, 0, 0, 0.12); }
 .edge { stroke: rgba(173, 216, 230, 0.25); stroke-width: 0.3; stroke-dasharray: 1 0.8; }
 .city-node { cursor: pointer; }
