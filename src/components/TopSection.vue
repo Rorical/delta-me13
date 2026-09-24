@@ -14,7 +14,7 @@
   display: flex;
   align-items: center;
   gap: 24px;
-  margin-bottom: 18px;
+  margin-bottom: 10px;
   padding-left: 16%;
 }
 

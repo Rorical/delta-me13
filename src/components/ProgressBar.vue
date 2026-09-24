@@ -85,6 +85,8 @@ withDefaults(defineProps<{ progress: number; label?: string; beam?: number }>(),
 }
 
 .cap {
+  position: relative;
+  z-index: 3;
   display: flex;
   align-items: center;
   gap: 10px;

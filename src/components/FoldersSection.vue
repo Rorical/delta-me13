@@ -104,8 +104,8 @@ const frames = computed(() => {
     const state = g === undefined ? 'idle' : g === props.selectedFolder ? 'active' : hovered.value === g ? 'group hover' : 'group'
     const x = i * slotW + 2
     const w = slotW * 1.05
-    const transform = state === 'active' ? 'translateY(-4px) scale(1.12, 1.28)' : state.includes('hover') ? 'scale(1.03, 1.08)' : 'none'
-    return { i, state, transform, outer: plate(x, w, 58, 172), inner: plate(x, w, 58, 172, 4) }
+    const transform = state === 'active' ? 'scale(1.1, 1.2)' : state.includes('hover') ? 'scale(1.03, 1.08)' : 'none'
+    return { i, state, transform, outer: plate(x, w, 44, 172), inner: plate(x, w, 44, 172, 4) }
   })
 })
 
@@ -122,14 +122,14 @@ const glitches = Array.from({ length: 7 }, (_, i) => ({
 <style scoped>
 .rack {
   position: relative;
-  height: 200px;
-  margin: 26px 0 0;
+  height: 172px;
+  margin: 12px 0 0;
   overflow: visible;
 }
 
 .scanlines {
   position: absolute;
-  inset: 20px 0 0;
+  inset: 14px 0 0;
   background: repeating-linear-gradient(0deg, rgba(173, 216, 230, 0.035) 0 1px, transparent 1px 4px);
   pointer-events: none;
 }
@@ -209,7 +209,7 @@ const glitches = Array.from({ length: 7 }, (_, i) => ({
 
 .beam {
   position: absolute;
-  top: 20px;
+  top: 16px;
   bottom: -40px;
   width: 1px;
   background: linear-gradient(180deg, rgba(236, 248, 253, 0.9), rgba(236, 248, 253, 0.6));
@@ -221,7 +221,7 @@ const glitches = Array.from({ length: 7 }, (_, i) => ({
 
 .sparkle {
   position: absolute;
-  top: 118px;
+  top: 92px;
   width: 150px;
   height: 150px;
   margin: -75px 0 0 -75px;
@@ -244,7 +244,7 @@ const glitches = Array.from({ length: 7 }, (_, i) => ({
 
 .active-icon {
   position: absolute;
-  top: 118px;
+  top: 92px;
   transform: translate(-50%, -50%);
   color: #fff;
   filter: drop-shadow(0 0 10px rgba(190, 232, 250, 0.95));
@@ -259,7 +259,7 @@ const glitches = Array.from({ length: 7 }, (_, i) => ({
 
 .callout {
   position: absolute;
-  top: -8px;
+  top: -12px;
   transform: translateX(-50%);
   padding: 4px 26px;
   font-size: 15px;
@@ -284,7 +284,7 @@ const glitches = Array.from({ length: 7 }, (_, i) => ({
 
 .hit {
   position: absolute;
-  top: 50px;
+  top: 38px;
   bottom: 0;
   padding: 0;
   border: none;
@@ -330,8 +330,8 @@ const glitches = Array.from({ length: 7 }, (_, i) => ({
 }
 
 @media (max-width: 768px) {
-  .rack { height: 160px; }
-  .sparkle, .active-icon { top: 96px; }
+  .rack { height: 148px; }
+  .sparkle, .active-icon { top: 80px; }
   .sparkle { width: 110px; height: 110px; margin: -55px 0 0 -55px; }
   .callout { font-size: 13px; padding: 3px 14px; }
 }
