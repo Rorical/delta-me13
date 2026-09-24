@@ -79,6 +79,7 @@ export interface EnemyStatus extends AgentBase {
   kind: 'enemy';
   enemyType: EnemyType;
   embers: string[];                 // 盗火行者夺走的火种
+  fled?: boolean;                   // 本次现身已经负伤遁走过一次
 }
 
 export type AgentStatus = HeirStatus | TitanStatus | NpcStatus | EnemyStatus;
@@ -249,6 +250,19 @@ export function nextHop(cities: Record<string, CityState>, from: string, to: str
   let step = to;
   while (prev[step] !== from) step = prev[step];
   return step;
+}
+
+// 城邦间最短路线（不含起点），不可达返回空数组
+export function routeTo(cities: Record<string, CityState>, from: string, to: string): string[] {
+  const route: string[] = [];
+  let cur = from;
+  for (let i = 0; i < 30 && cur !== to; i++) {
+    const hop = nextHop(cities, cur, to);
+    if (!hop) return [];
+    route.push(hop);
+    cur = hop;
+  }
+  return route;
 }
 
 // 已从泰坦处取得的火种（含已归还）

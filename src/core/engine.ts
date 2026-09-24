@@ -22,6 +22,13 @@ type Listener = () => void;
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 const round1 = (v: number) => Math.round(v * 10) / 10;
 
+const RESPECT_DAILY_CAP = 12;
+
+// 泰坦授予火种所需的认可：仍记神谕者较易，「火种试炼」者须经长久考验
+export function respectThreshold(disposition: TitanStatus['disposition']): number {
+  return disposition === 'benevolent' ? 40 : 70;
+}
+
 function capPush<T>(list: T[], item: T, limit: number) {
   list.push(item);
   if (list.length > limit) list.splice(0, list.length - limit);
@@ -36,6 +43,10 @@ export class WorldEngine {
   private msgSeq = 0;
   // 本日收到消息的代理 -> 发信人列表（用于当日回应阶段）
   readonly inbox = new Map<string, string[]>();
+  // 当日计数：移动、净化、认可增长（不存档，每天清零）
+  private movedToday = new Set<string>();
+  private cleansedToday = new Map<string, number>();
+  private respectToday = new Map<string, number>();
   onEraEnd?: (outcome: EraOutcome, reason: string) => void;
 
   /** 完整编年史（界面上的 state.logs 只保留最近一段） */
@@ -124,6 +135,21 @@ export class WorldEngine {
     return def;
   }
 
+  respectNeeded(titan: TitanStatus): number {
+    return respectThreshold(titan.disposition);
+  }
+
+  // 认可每天对同一位黄金裔最多增长 RESPECT_DAILY_CAP，避免一日之内速成
+  private gainRespect(titan: TitanStatus, heir: AgentStatus, amount: number) {
+    if (!isHeir(heir)) return;
+    const key = `${titan.id}:${heir.id}`;
+    const used = this.respectToday.get(key) ?? 0;
+    const gain = Math.max(0, Math.min(amount, RESPECT_DAILY_CAP - used));
+    if (!gain) return;
+    this.respectToday.set(key, used + gain);
+    titan.respect[heir.id] = (titan.respect[heir.id] ?? 0) + gain;
+  }
+
   // 伤害修正：负世庇护、防御姿态
   private mitigate(target: AgentStatus, dmg: number): number {
     if (!isEnemy(target) && this.demigodActive('负世', target.location)) dmg *= 0.7;
@@ -187,6 +213,7 @@ export class WorldEngine {
         const dest = this.resolveCity(action.targetCity);
         if (!dest) return { ok: false, message: `没有名为“${action.targetCity}”的城邦` };
         if (dest.id === actor.location) return { ok: false, message: `你已经在${dest.name}` };
+        if (this.movedToday.has(actor.id)) return { ok: false, message: '今天已经赶过路了（每天只能移动一次）' };
         const from = actor.location;
         let hop = nextHop(this.state.cities, actor.location, dest.id);
         if (!hop) return { ok: false, message: `无法从${actor.location}抵达${dest.name}` };
@@ -199,6 +226,7 @@ export class WorldEngine {
           via = '（经天空桥梁）';
         }
         actor.location = hop;
+        this.movedToday.add(actor.id);
         const tail = hop === dest.id ? '' : `（前往${dest.name}途中）`;
         this.log('move', `${actor.name} 从${from}来到${hop}${via}${tail}`, isTitan(actor) ? 'high' : 'low', { agentId: actor.id, location: hop });
         return { ok: true, message: `抵达${hop}${via}${tail}` };
@@ -326,7 +354,8 @@ export class WorldEngine {
         if (!this.hasItems(actor, action.items)) return { ok: false, message: `你没有足够的${this.describeItems(action.items)}` };
         for (const [k, n] of Object.entries(action.items)) { this.addItem(actor, k, -n); this.addItem(t, k, n); }
         this.relate(t, actor, 8);
-        if (isTitan(actor) && isHeir(t)) actor.respect[t.id] = (actor.respect[t.id] ?? 0) + 5;
+        if (isTitan(actor) && isHeir(t)) this.gainRespect(actor, t, 5);
+        if (isHeir(actor) && isTitan(t)) this.gainRespect(t, actor, 4);
         this.log('economy', `${actor.name} 赠予 ${t.name} ${this.describeItems(action.items)}`, 'low', { agentId: actor.id, targetId: t.id, location: actor.location });
         return { ok: true, message: `赠予${t.name}${this.describeItems(action.items)}` };
       }
@@ -345,7 +374,11 @@ export class WorldEngine {
       case 'CLEANSE': {
         if (!city) return { ok: false, message: '无处净化' };
         if (city.darkTide <= 0.5) return { ok: false, message: `${city.name}没有黑潮` };
-        const amount = round1(Math.min(city.darkTide, 1 + this.attackPower(actor) / 14 + (isTitan(actor) ? 2 : 0)));
+        // 同一城邦一天内的净化收益递减：黑潮需要分头清理，而非一拥而上
+        const times = this.cleansedToday.get(city.id) ?? 0;
+        this.cleansedToday.set(city.id, times + 1);
+        const base = 0.6 + this.attackPower(actor) / 25 + (isTitan(actor) ? 1 : 0);
+        const amount = round1(Math.min(city.darkTide, base * Math.pow(0.5, times)));
         city.darkTide = round1(city.darkTide - amount);
         const cost = isTitan(actor) ? 0 : Math.ceil(amount);
         actor.hp = Math.max(1, actor.hp - cost);
@@ -353,7 +386,7 @@ export class WorldEngine {
           this.gainXp(actor, 4);
           for (const id of city.titanIds) {
             const titan = this.agent(id);
-            if (isTitan(titan)) titan.respect[actor.id] = (titan.respect[actor.id] ?? 0) + 6;
+            if (isTitan(titan) && amount >= 1) this.gainRespect(titan, actor, 6);
           }
         }
         if (city.fallen && city.darkTide < 60) {
@@ -372,7 +405,8 @@ export class WorldEngine {
         if (!isHeir(t)) return { ok: false, message: '火种只能授予黄金裔' };
         if (t.path !== actor.path) return { ok: false, message: `「${actor.path}」的火种只认「${actor.path}」的黄金裔（${this.heirOfPath(actor.path)?.name ?? '无人'}）` };
         if (actor.disposition === 'corrupted') return { ok: false, message: '被黑潮侵染的你无法放手火种' };
-        if ((actor.respect[t.id] ?? 0) < 30) return { ok: false, message: `${t.name}尚未得到足够的认可（${actor.respect[t.id] ?? 0}/30）` };
+        const need = this.respectNeeded(actor);
+        if ((actor.respect[t.id] ?? 0) < need) return { ok: false, message: `${t.name}尚未得到足够的认可（${actor.respect[t.id] ?? 0}/${need}）` };
         this.transferEmber(actor, t, 'bestow');
         return { ok: true, message: `将火种授予了${t.name}` };
       }
@@ -479,7 +513,7 @@ export class WorldEngine {
       attacker.hp -= back;
       this.log('combat', `${target.name}反击，${attacker.name}受到${back}点伤害（剩余${Math.max(0, attacker.hp)}）`, 'medium',
         { agentId: target.id, targetId: attacker.id, location: city?.id });
-      if (isTitan(target) && isHeir(attacker)) target.respect[attacker.id] = (target.respect[attacker.id] ?? 0) + 4;
+      if (isTitan(target) && isHeir(attacker)) this.gainRespect(target, attacker, 4);
       if (attacker.hp <= 0) {
         this.defeat(attacker, target);
         return { ok: true, message: `造成${dmg}伤害，但被${target.name}的反击击倒` };
@@ -549,7 +583,7 @@ export class WorldEngine {
     heir.embers = heir.embers.filter(e => e !== id);
     ember.holderId = thief.id;
     thief.embers.push(id);
-    this.log('ember', `盗火行者从倒下的${heir.name}身上夺走了${ember.name}！`, 'critical', { agentId: thief.id, targetId: heir.id, location: heir.location });
+    this.log('ember', `盗火行者从${heir.condition === 'active' ? '' : '倒下的'}${heir.name}身上夺走了${ember.name}！`, 'critical', { agentId: thief.id, targetId: heir.id, location: heir.location });
   }
 
   private transferEmber(titan: TitanStatus, heir: HeirStatus, how: 'bestow' | 'conquest') {
@@ -587,7 +621,7 @@ export class WorldEngine {
     capPush(this.chronicle.messages, msg, CHRONICLE_MESSAGE_LIMIT);
     from.counters.chats++;
     this.relate(to, from, 2);
-    if (isTitan(to) && isHeir(from)) to.respect[from.id] = (to.respect[from.id] ?? 0) + 5;
+    if (isTitan(to) && isHeir(from)) this.gainRespect(to, from, 5);
     const list = this.inbox.get(to.id) ?? [];
     if (!list.includes(from.id)) list.push(from.id);
     this.inbox.set(to.id, list);
@@ -609,8 +643,18 @@ export class WorldEngine {
   // 盗火行者在第一枚火种被取走后现身，出现在离持有者最远的地方
   private spawnFlamethief(near: string) {
     const location = this.farthestCity(near);
-    this.newEnemy(FLAMETHIEF_ID, 'flamethief', '盗火行者', '觊觎众神火种的神秘剑士', location, 520, 42, 18);
+    const t = this.newEnemy(FLAMETHIEF_ID, 'flamethief', '盗火行者', '觊觎众神火种的神秘剑士', location, 600, 46, 18);
+    this.scaleFlamethief(t);
     this.log('event', `【盗火行者】一名神秘剑士出现在${location}，开始追猎携带火种的黄金裔。结伴护送才能保住火种。`, 'critical', { location });
+  }
+
+  // 火种越多，盗火行者越强
+  private scaleFlamethief(t: EnemyStatus) {
+    const n = collectedEmberCount(this.state);
+    t.fled = false;
+    t.maxHp = 600 + n * 70;
+    t.power = 46 + n * 2;
+    t.hp = t.maxHp;
   }
 
   private farthestCity(from: string): string {
@@ -625,25 +669,36 @@ export class WorldEngine {
   private tickFlamethief() {
     const thief = this.enemy('flamethief');
     if (!thief || thief.condition !== 'active' || this.state.phase === 'ended') return;
-    const carriers = this.heirs().filter(h => h.condition === 'active' && h.embers.length > 0);
-    if (!carriers.length) return;
-    const here = carriers.filter(h => h.location === thief.location).sort((a, b) => b.embers.length - a.embers.length);
-    if (here.length) {
-      const target = here[0];
-      const dmg = this.mitigate(target, this.attackPower(thief) * (0.85 + Math.random() * 0.3) - this.defensePower(target) * 0.5);
-      target.hp -= dmg;
-      this.log('combat', `盗火行者袭击了${target.name}，造成${dmg}点伤害（剩余${Math.max(0, target.hp)}/${target.maxHp}）`, 'high',
-        { agentId: thief.id, targetId: target.id, location: thief.location });
-      if (target.hp <= 0) this.defeat(target, thief);
+    // 负伤遁走：每次现身只会遁走一次，再被追上便只能死战
+    if (thief.hp < thief.maxHp * 0.35 && !thief.fled) {
+      thief.fled = true;
+      thief.location = this.farthestCity(thief.location);
+      thief.hp = Math.min(thief.maxHp, thief.hp + Math.round(thief.maxHp * 0.15));
+      this.log('move', `盗火行者负伤遁走，藏身于${thief.location}`, 'high', { agentId: thief.id, location: thief.location });
       return;
     }
-    const nearest = carriers.reduce((best, h) =>
-      cityDistance(this.state.cities, thief.location, h.location) < cityDistance(this.state.cities, thief.location, best.location) ? h : best);
-    const hop = nextHop(this.state.cities, thief.location, nearest.location);
-    if (hop) {
+    thief.hp = Math.min(thief.maxHp, thief.hp + Math.round(thief.maxHp * 0.05));
+    const carriers = this.heirs().filter(h => h.condition === 'active' && h.embers.length > 0);
+    if (!carriers.length) return;
+    // 追向最近的携火者；抵达后立即发难
+    if (!carriers.some(h => h.location === thief.location)) {
+      const nearest = carriers.reduce((best, h) =>
+        cityDistance(this.state.cities, thief.location, h.location) < cityDistance(this.state.cities, thief.location, best.location) ? h : best);
+      const hop = nextHop(this.state.cities, thief.location, nearest.location);
+      if (!hop) return;
       thief.location = hop;
       this.log('move', `盗火行者循着火种的气息来到${hop}`, 'medium', { agentId: thief.id, location: hop });
     }
+    const here = carriers.filter(h => h.location === thief.location).sort((a, b) => b.embers.length - a.embers.length);
+    if (!here.length) return;
+    const target = here[0];
+    const dmg = this.mitigate(target, this.attackPower(thief) * (0.85 + Math.random() * 0.3) - this.defensePower(target) * 0.5);
+    target.hp -= dmg;
+    this.log('combat', `盗火行者袭击了${target.name}，造成${dmg}点伤害（剩余${Math.max(0, target.hp)}/${target.maxHp}）`, 'high',
+      { agentId: thief.id, targetId: target.id, location: thief.location });
+    if (target.hp <= 0) this.defeat(target, thief);
+    // 同伴越少，越容易在交锋中被夺走火种
+    else if (Math.random() < (this.agentsIn(target.location).filter(a => isHeir(a) || isTitan(a)).length > 1 ? 0.15 : 0.35)) this.stealEmber(thief, target);
   }
 
   // 铁墓：每日对创世涡心的所有友方降下毁灭
@@ -704,13 +759,16 @@ export class WorldEngine {
     s.totalDays++;
     s.timeOfDay = (['dawn', 'noon', 'dusk', 'midnight'] as const)[s.day % 4];
     this.inbox.clear();
+    this.movedToday.clear();
+    this.cleansedToday.clear();
+    this.respectToday.clear();
     const deathMercy = !!this.demigodActive('死亡');
     for (const a of Object.values(s.agents)) {
       a.guarding = false;
       if (a.condition === 'down' && (a.reviveDay ?? 0) <= s.day) {
         a.condition = 'active';
         if (isEnemy(a)) {
-          a.hp = a.maxHp;
+          this.scaleFlamethief(a);
           a.location = this.farthestCity(a.location);
           this.log('event', `盗火行者在${a.location}重新现身`, 'high', { agentId: a.id, location: a.location });
           continue;
@@ -746,7 +804,7 @@ export class WorldEngine {
     const cities = Object.values(s.cities);
     const embers = returnedEmberCount(s);
     // 纪元越往后黑潮越凶；每枚归还的火种都会压制黑潮；铁墓降临时黑潮狂涌
-    let base = s.darkTide.growth * (1 + (s.era - 1) * 0.15) * (1 - embers * 0.05);
+    let base = s.darkTide.growth * (1 + (s.era - 1) * 0.15) * (1 - embers * 0.03);
     if (this.demigodActive('大地')) base *= 0.85;
     if (s.phase === 'irontomb') base *= 2.2;
     const snapshot = Object.fromEntries(cities.map(c => [c.id, c.darkTide]));
@@ -754,7 +812,7 @@ export class WorldEngine {
       if (c.id === RECREATION_SITE) continue;
       const neighborAvg = c.neighbors.reduce((sum, n) => sum + (snapshot[n] ?? 0), 0) / Math.max(1, c.neighbors.length);
       const spread = Math.max(0, neighborAvg - c.darkTide) * 0.04;
-      const mitigation = clamp((c.walls + c.watchtowers * 0.5) / 30, 0, 0.5);
+      const mitigation = clamp((c.walls + c.watchtowers * 0.5) / 60, 0, 0.4);
       const titans = c.titanIds.map(id => s.agents[id]).filter((t): t is TitanStatus => isTitan(t) && t.condition === 'active' && t.location === c.id);
       const guard = titans.some(t => t.disposition !== 'corrupted') ? 0.6 : 1;
       const corruptBoost = titans.some(t => t.disposition === 'corrupted') ? 0.6 : 0;
@@ -772,6 +830,14 @@ export class WorldEngine {
       if (c.darkTide > 70) {
         for (const a of this.agentsIn(c.id)) if (!isTitan(a) && !isEnemy(a)) a.hp = Math.max(1, a.hp - 3);
       }
+    }
+    // 黑潮涌动：每天总有一处城邦遭受冲击
+    const targets = cities.filter(c => c.id !== RECREATION_SITE && !c.fallen);
+    if (targets.length) {
+      const c = targets[Math.floor(Math.random() * targets.length)];
+      const surge = round1(base * (2 + Math.random() * 3));
+      c.darkTide = round1(clamp(c.darkTide + surge, 0, 100));
+      this.log('tide', `黑潮在${c.name}涌动（+${surge}%，现为${c.darkTide.toFixed(1)}%）`, surge >= 6 ? 'medium' : 'low', { location: c.id });
     }
     const active = cities.filter(c => c.id !== RECREATION_SITE);
     s.darkTide.global = round1(active.reduce((sum, c) => sum + c.darkTide, 0) / active.length);

@@ -28,7 +28,7 @@ export interface Decision {
 }
 
 export const ACTION_DOCS: Record<ActionType, string> = {
-  MOVE: 'MOVE {targetCity}: 前往某城邦。每天只能走到相邻城邦，给出远方目的地会自动沿最短路径前进一步',
+  MOVE: 'MOVE {targetCity}: 前往某城邦。每天只能移动一次、走到相邻城邦，给出远方目的地会自动沿最短路径前进一步',
   CHAT: 'CHAT {targetId, content}: 对同城的某人说话（对方会在之后回应）',
   INSPECT: 'INSPECT {targetId}: 观察同城某人的状态',
   FORM_ALLIANCE: 'FORM_ALLIANCE {targetId}: 与同城某人结盟；盟友同城时会协同作战',
@@ -42,7 +42,7 @@ export const ACTION_DOCS: Record<ActionType, string> = {
   GIFT: 'GIFT {targetId, items}: 赠送物品给同城某人，如 items:{"治疗药剂":1}',
   BUILD_DEFENSE: 'BUILD_DEFENSE {defenseType: WALL|WATCHTOWER}: 消耗5材料为所在城邦修筑城防，减缓黑潮',
   CLEANSE: 'CLEANSE: 净化所在城邦的黑潮（消耗少量生命）',
-  BESTOW_EMBER: 'BESTOW_EMBER {targetId}: 将你守护的火种授予同城的一位黄金裔（需其认可度≥30）',
+  BESTOW_EMBER: 'BESTOW_EMBER {targetId}: 将你守护的火种授予同城、对应路径的黄金裔（认可须达到门槛：仍记神谕的泰坦40，火种试炼的泰坦70；每天认可最多增长12）',
   RETURN_EMBER: 'RETURN_EMBER: 在创世涡心归还身上的火种。火种只认对应路径的黄金裔：归还自己路径的火种会成为半神；替别人归还则由对应的黄金裔成为半神',
   HAND_EMBER: 'HAND_EMBER {targetId}: 把你携带的全部火种交给同城的一位黄金裔（例如交给火种对应路径的主人，或托付给护送者）',
   SUPPORT_FRONT: 'SUPPORT_FRONT: 最终之战期间，消耗5份物资（泰坦消耗20生命）为创世涡心的前线提升士气；士气会治疗前线战士并提高其攻击'

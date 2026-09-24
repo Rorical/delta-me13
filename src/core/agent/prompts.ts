@@ -1,8 +1,8 @@
 // 为不同类型的代理构建提示。系统提示（人设+规则）固定不变，便于端点做前缀缓存；
 // 用户提示只包含当前局势，保持精简以节省 token。
 import type { AgentStatus, HeirStatus, NpcStatus, TitanStatus } from '../omphalosWorldState';
-import { isEnemy, isHeir, isNpc, isTitan, collectedEmberCount, returnedEmberCount } from '../omphalosWorldState';
-import type { WorldEngine } from '../engine';
+import { isEnemy, isHeir, isNpc, isTitan, collectedEmberCount, returnedEmberCount, routeTo } from '../omphalosWorldState';
+import { respectThreshold, type WorldEngine } from '../engine';
 import type { AgentMemory } from './memory';
 import { ACTION_DOCS, ALLOWED_ACTIONS } from './actions';
 import { describeRecipes } from '../recipes';
@@ -24,7 +24,8 @@ const COMMON_RULES = `【世界】翁法罗斯。十二泰坦开创了这个世�
 - 每天最多3个动作，按顺序执行；大部分动作只能作用于与你同城的人，ID必须来自“此地之人”列表
 - 说话要符合你的身份与性格，简短自然、口语化，不要重复别人的话，也不要每次都用相同开头；不要使用表情符号
 - 被人搭话时请回应（CHAT 回对方），但不要无休止闲聊；把对话转化为行动
-- 失败的动作会出现在“近况”里，请据此调整，不要重复同样的错误`;
+- 失败的动作会出现在“近况”里，请据此调整，不要重复同样的错误
+- 每天只能移动一次；不要反复观察同一个人，也不要反复说同样的话——信息都在“局势”里，把时间花在行动上`;
 
 export function buildSystemPrompt(agent: AgentStatus, npcPersonality?: string): string {
   const actions = ALLOWED_ACTIONS[agent.kind].map(t => `- ${ACTION_DOCS[t]}`).join('\n');
@@ -45,7 +46,7 @@ function heirPersona(h: HeirStatus): string {
 说话风格：${p.speech}
 使命：取得${titan ? `「${titan.title}」${titan.name}` : '泰坦'}守护的「${p.path}」火种，带往创世涡心归还（RETURN_EMBER），并协助同伴让十二火种全部归还。
 提示：泰坦远比你强大。独自挑战多半会倒下——先结盟、打造装备、准备药剂，再与同伴一同挑战；
-尚存神智的泰坦可以通过交谈、净化其城邦赢得认可（≥30），由其亲手授予火种；已被黑潮侵染的泰坦只能击落。
+尚存神智的泰坦可以通过交谈、赠礼、净化其城邦赢得认可，由其亲手授予火种（认可每天最多增长12，需要数日的诚意）；已被黑潮侵染的泰坦只能击落。
 你成为半神后的神职：${describeDemigod(p.path)}
 最终之战：铁墓降临后，前往${RECREATION_SITE}与所有人并肩作战；倒下后会苏醒，请尽快重返前线。`;
 }
@@ -53,8 +54,8 @@ function heirPersona(h: HeirStatus): string {
 function titanPersona(t: TitanStatus): string {
   const p = getTitanProfile(t.id)!;
   const stance = {
-    benevolent: '你仍记得神谕。你愿把火种托付给真正值得的黄金裔：考验他们的心志，认可足够（≥30）时用 BESTOW_EMBER 授予火种。',
-    neutral: '你对黄金裔保持审视：他们必须通过你的「火种试炼」，以言语、行动或武力证明自己；被说服后你可以授予火种。',
+    benevolent: `你仍记得神谕。你愿把火种托付给真正值得的黄金裔：考验他们的心志，认可达到${respectThreshold('benevolent')}时用 BESTOW_EMBER 授予火种。`,
+    neutral: `你对黄金裔保持审视：他们必须通过你的「火种试炼」，以言语、行动或武力证明自己；认可达到${respectThreshold('neutral')}、被说服后你可以授予火种。`,
     corrupted: '你已失神，被黑潮侵染，神志混乱而充满敌意。你会攻击闯入领域的人，绝不交出火种。'
   }[t.disposition];
   return `你是「${p.title}」${p.name}，${p.path}之泰坦，${p.group}三泰坦之一，栖居于${p.home}。
@@ -76,6 +77,12 @@ function npcPersona(n: NpcStatus, personality?: string): string {
 
 export function buildUserPrompt(engine: WorldEngine, agent: AgentStatus, memory: AgentMemory, trigger?: string): string {
   const s = engine.state;
+  // 从此地前往某城邦的路程
+  const travel = (to: string) => {
+    if (to === agent.location) return '，就在此地';
+    const route = routeTo(s.cities, agent.location, to);
+    return route.length ? `，距此${route.length}天：${route.join('→')}` : '，无路可达';
+  };
   const city = s.cities[agent.location];
   const here = engine.agentsIn(agent.location, agent.id)
     .map(a => {
@@ -92,7 +99,7 @@ export function buildUserPrompt(engine: WorldEngine, agent: AgentStatus, memory:
 
   const lines = [
     `【第${s.era}纪元·第${s.day}天】世界黑潮${s.darkTide.global.toFixed(0)}%，稳定度${s.worldStability.toFixed(0)}，火种已取得${collectedEmberCount(s)}/12、已归还${returnedEmberCount(s)}/12`,
-    `【所在】${city.name}（${city.type}，黑潮${city.darkTide.toFixed(0)}%${city.fallen ? '，已沦陷' : ''}，库存 食物${city.resources.food}/材料${city.resources.materials}/魔力${city.resources.mana}）`,
+    `【所在】${city.name}（${city.type}，黑潮${city.darkTide.toFixed(0)}%${city.fallen ? '，已沦陷' : city.darkTide <= 0.5 ? '，已清净无需净化' : ''}，库存 食物${city.resources.food}/材料${city.resources.materials}/魔力${city.resources.mana}）`,
     `相邻城邦：${neighbors}`,
     `【自身】HP ${agent.hp}/${agent.maxHp}，攻${engine.attackPower(agent)} 防${engine.defensePower(agent)}${gear ? `，${gear}` : ''}，背包：${inv}`
   ];
@@ -105,10 +112,11 @@ export function buildUserPrompt(engine: WorldEngine, agent: AgentStatus, memory:
       const owner = e && engine.heirOfPath(e.path);
       return e ? `${e.name}${owner && owner.id !== agent.id ? `（属于${owner.name}）` : ''}` : id;
     }).join('、');
-    lines.push(`等级${agent.level}，${held ? `身上的火种：${held}（前往${RECREATION_SITE}用 RETURN_EMBER 归还）` : '身上没有火种'}${agent.demigod.length ? `，已是「${agent.demigod.join('」「')}」的半神` : ''}，盟友：${allies}`);
+    lines.push(`等级${agent.level}，${held ? `身上的火种：${held}（前往${RECREATION_SITE}用 RETURN_EMBER 归还${travel(RECREATION_SITE)}）` : '身上没有火种'}${agent.demigod.length ? `，已是「${agent.demigod.join('」「')}」的半神` : ''}，盟友：${allies}`);
     if (target) {
-      const status = target.emberTaken ? '火种已被取走' : target.condition === 'fallen' ? '已陨落' : `HP${target.hp}/${target.maxHp}，对你的认可${target.respect[agent.id] ?? 0}`;
-      lines.push(`目标泰坦：${target.name} 位于${target.location}（${status}）`);
+      const status = target.emberTaken ? '火种已被取走' : target.condition === 'fallen' ? '已陨落'
+        : `HP${target.hp}/${target.maxHp}，${target.disposition === 'corrupted' ? '已被侵染，只能击落' : `对你的认可${target.respect[agent.id] ?? 0}/${respectThreshold(target.disposition)}`}`;
+      lines.push(`目标泰坦：${target.name} 位于${target.location}（${status}）${travel(target.location)}`);
     }
     const open = Object.values(s.agents)
       .filter((a): a is TitanStatus => isTitan(a) && !a.emberTaken)
@@ -121,7 +129,22 @@ export function buildUserPrompt(engine: WorldEngine, agent: AgentStatus, memory:
     if (s.imprint.count) lines.push(`【轮回印记×${s.imprint.count}】${s.imprint.notes.slice(-3).join(' ')}`);
   } else if (isTitan(agent)) {
     const respect = Object.entries(agent.respect).map(([id, v]) => `${s.agents[id]?.name ?? id}:${v}`).join('、') || '无';
-    lines.push(`你的火种：${agent.emberTaken ? '已不在你手中' : '仍在守护'}；对黄金裔的认可：${respect}`);
+    lines.push(`你的火种：${agent.emberTaken ? '已不在你手中' : '仍在守护'}；对黄金裔的认可（授予门槛${respectThreshold(agent.disposition)}）：${respect}`);
+    const owner = engine.heirOfPath(agent.path);
+    if (!agent.emberTaken && owner) {
+      lines.push(`火种的主人：${owner.name}[ID:${owner.id}]（「${agent.path}」黄金裔，${owner.location === agent.location ? '此刻就在你面前' : `此刻在${owner.location}`}，认可${agent.respect[owner.id] ?? 0}/${respectThreshold(agent.disposition)}）`);
+    }
+  }
+
+  // 所有人都知道每枚未归还火种的去向，免得四处打听
+  if (s.phase === 'flamechase') {
+    const whereabouts = Object.values(s.embers).filter(e => !e.returned).map(e => {
+      const holder = e.holderId ? s.agents[e.holderId] : undefined;
+      const owner = engine.heirOfPath(e.path);
+      const where = holder ? `${holder.name}${isEnemy(holder) ? '夺走' : '携带'}@${holder.location}` : `${s.agents[e.titanId]?.name ?? '泰坦'}守护@${s.agents[e.titanId]?.location ?? '?'}`;
+      return `${e.path}(${where}${owner && owner.id !== holder?.id ? `，属${owner.name}` : ''})`;
+    });
+    if (whereabouts.length) lines.push(`【未归还的火种】${whereabouts.join('、')}`);
   }
 
   const thief = engine.enemy('flamethief');

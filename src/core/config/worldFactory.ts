@@ -71,7 +71,7 @@ export function createWorld(options: WorldOptions): { state: OmphalosWorldState;
     cities: createCities(),
     agents: createWorldAgents(npcs),
     embers: createEmbers(),
-    darkTide: { global: 0, growth: 1.1 },
+    darkTide: { global: 0, growth: 1.6 },
     worldStability: 80,
     activeEvents: [],
     eraHistory: [],
