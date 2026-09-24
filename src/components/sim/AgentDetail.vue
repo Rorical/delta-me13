@@ -18,6 +18,7 @@
     <p v-if="d.lastThought" class="om-inner quote">「{{ d.lastThought }}」</p>
     <dl>
       <template v-if="d.demigodText"><dt>神权</dt><dd>{{ d.demigodText }}</dd></template>
+      <template v-if="d.power"><dt>神职</dt><dd>{{ d.power }}<span v-if="!d.demigodText" class="om-muted">（归还火种后生效）</span></dd></template>
       <template v-if="d.gear"><dt>装备</dt><dd>{{ d.gear }}</dd></template>
       <dt>背包</dt><dd>{{ d.inventory || '空' }}</dd>
       <template v-if="d.allies"><dt>盟友</dt><dd>{{ d.allies }}</dd></template>
@@ -44,16 +45,16 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import { Activity, Brain, Crown, ScrollText, Sparkles, User, X } from 'lucide-vue-next';
+import { Activity, Brain, ScrollText, X } from 'lucide-vue-next';
 import type { OmphalosSimulation } from '../../core/llmSimulation';
-import { isHeir, isTitan } from '../../core/omphalosWorldState';
+import { isEnemy, isHeir, isTitan } from '../../core/omphalosWorldState';
+import { DEMIGOD_POWERS, describeDemigod } from '../../core/config/demigods';
 import { GOLDEN_HEIRS } from '../../core/agent/goldenHeirProfiles';
-import { KIND_LABEL } from './useSimulation';
+import { KIND_ICON as kindIcon, KIND_LABEL } from './useSimulation';
 
 const props = defineProps<{ sim: OmphalosSimulation; tick: number; agentId: string }>();
 defineEmits<{ (e: 'close'): void; (e: 'city', id: string): void }>();
 
-const kindIcon = { heir: Sparkles, titan: Crown, npc: User };
 
 const d = computed(() => {
   void props.tick;
@@ -68,9 +69,10 @@ const d = computed(() => {
     atk: props.sim.engine.attackPower(a),
     def: props.sim.engine.defensePower(a),
     level: isHeir(a) ? a.level : 0,
-    embersText: isHeir(a) ? (a.embers.map(id => s.embers[id]?.name).join('、') || '无')
+    embersText: isHeir(a) || isEnemy(a) ? (a.embers.map(id => s.embers[id]?.name).join('、') || '无')
       : isTitan(a) ? `${s.embers[a.emberId]?.name}（${a.emberTaken ? '已失去' : '守护中'}）` : '',
     demigodText: isHeir(a) && a.demigod.length ? `「${a.demigod.join('」「')}」` : '',
+    power: isHeir(a) && DEMIGOD_POWERS[a.path] ? describeDemigod(a.path) : '',
     gear: [a.weapon, a.armor].filter(Boolean).join('、'),
     inventory: Object.entries(a.inventory).map(([k, n]) => `${k}×${n}`).join('、'),
     allies: a.allies.map(nameOf).join('、'),

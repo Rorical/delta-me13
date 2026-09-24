@@ -1,4 +1,4 @@
-import { WorldEngine } from './engine';
+import { WorldEngine, type EraOutcome } from './engine';
 import { AgentMemory } from './agent/memory';
 import { LLMGateway, mapLimit, type LLMConfig } from './llm';
 import type { ProviderAdapter } from './providers';
@@ -7,7 +7,7 @@ import { ALLOWED_ACTIONS, type Action, type ActionType, type Decision } from './
 import { createWorld } from './config/worldFactory';
 import type { NPCSeed } from './agent/npcProfiles';
 import {
-  type AgentStatus, type OmphalosWorldState, returnedEmberCount, isNpc, isTitan
+  type AgentStatus, type OmphalosWorldState, returnedEmberCount, isEnemy, isHeir, isNpc, isTitan
 } from './omphalosWorldState';
 
 export interface SimConfig {
@@ -26,7 +26,7 @@ export const DEFAULT_SIM_CONFIG: SimConfig = {
   npcCount: 10
 };
 
-export type SimStatus = 'idle' | 'running' | 'paused' | 'stopping';
+export type SimStatus = 'idle' | 'running' | 'paused' | 'stopping' | 'ended';
 
 export interface SimProgress {
   phase: string;
@@ -34,7 +34,7 @@ export interface SimProgress {
   total: number;
 }
 
-const REPLY_ACTIONS: ActionType[] = ['CHAT', 'GIFT', 'TRADE', 'FORM_ALLIANCE', 'ATTACK', 'INSPECT', 'BESTOW_EMBER', 'DEFEND'];
+const REPLY_ACTIONS: ActionType[] = ['CHAT', 'GIFT', 'TRADE', 'FORM_ALLIANCE', 'ATTACK', 'INSPECT', 'BESTOW_EMBER', 'HAND_EMBER', 'DEFEND'];
 
 class AbortedError extends Error {}
 
@@ -52,14 +52,19 @@ export class OmphalosSimulation {
   private abort?: AbortController;
   private listeners = new Set<() => void>();
   private pauseRequested = false;
-  private pendingEraEnd?: 'recreation' | 'collapse';
+  private pendingEraEnd?: { outcome: EraOutcome; reason: string };
 
   constructor(config: Partial<SimConfig> = {}) {
     this.config = { ...DEFAULT_SIM_CONFIG, ...config };
     const { state, npcs } = createWorld({ npcCount: this.config.npcCount });
     this.npcSeeds = npcs;
     this.engine = new WorldEngine(state, () => this.emit());
-    this.engine.onEraEnd = outcome => { this.pendingEraEnd = outcome; };
+    this.engine.onEraEnd = (outcome, reason) => {
+      if (this.pendingEraEnd) return;
+      this.pendingEraEnd = { outcome, reason };
+      // 解放立即生效：当日剩余的世界演化不再进行
+      if (outcome === 'liberation') this.state.phase = 'ended';
+    };
     this.engine.log('system', '翁法罗斯世界初始化完成，逐火之旅即将开始……', 'critical');
   }
 
@@ -92,13 +97,17 @@ export class OmphalosSimulation {
   }
 
   // ---------- 运行控制 ----------
+  get ended(): boolean {
+    return this.state.phase === 'ended';
+  }
+
   async start() {
-    if (this.status === 'running' || this.status === 'stopping') return;
+    if (this.status === 'running' || this.status === 'stopping' || this.ended) return;
     await this.loop(Infinity);
   }
 
   async step() {
-    if (this.status === 'running' || this.status === 'stopping') return;
+    if (this.status === 'running' || this.status === 'stopping' || this.ended) return;
     await this.loop(1);
   }
 
@@ -110,11 +119,11 @@ export class OmphalosSimulation {
   }
 
   resume(): Promise<void> | undefined {
-    if (this.status === 'paused') return this.loop(Infinity);
+    if (this.status === 'paused' && !this.ended) return this.loop(Infinity);
   }
 
   stop() {
-    if (this.status === 'idle') return;
+    if (this.status === 'idle' || this.status === 'ended') return;
     if (this.status === 'paused') {
       this.status = 'idle';
       this.setPhase('已停止');
@@ -128,6 +137,7 @@ export class OmphalosSimulation {
 
   reset() {
     this.stop();
+    this.pendingEraEnd = undefined;
     const { state, npcs } = createWorld({ npcCount: this.config.npcCount });
     this.npcSeeds = npcs;
     this.engine.state = state;
@@ -150,11 +160,16 @@ export class OmphalosSimulation {
     try {
       for (let i = 0; i < days; i++) {
         await this.runDay();
-        if (this.pauseRequested || i === days - 1) break;
+        if (this.ended || this.pauseRequested || i === days - 1) break;
         await this.sleep(this.config.dayDelayMs);
       }
-      this.status = 'paused';
-      this.setPhase('已暂停');
+      if (this.ended) {
+        this.status = 'ended';
+        this.setPhase('轮回终结');
+      } else {
+        this.status = 'paused';
+        this.setPhase('已暂停');
+      }
     } catch (err: any) {
       if (err instanceof AbortedError || this.abort.signal.aborted) {
         this.status = 'idle';
@@ -193,11 +208,13 @@ export class OmphalosSimulation {
     engine.beginDay();
     const s = this.state;
 
-    // 1. 决策：黄金裔每天行动；NPC 按活跃度抽样；泰坦只在有人来访时醒来
-    const active = Object.values(s.agents).filter(a => a.condition === 'active');
+    // 1. 决策：黄金裔每天行动；NPC 按活跃度抽样；泰坦平时只在有人来访时醒来，最终之战中全员行动
+    //    敌对单位由引擎脚本驱动，不调用模型
+    const finale = s.phase === 'irontomb';
+    const active = Object.values(s.agents).filter(a => a.condition === 'active' && !isEnemy(a));
     const deciders = active.filter(a => {
-      if (isTitan(a)) return engine.agentsIn(a.location, a.id).some(o => !isTitan(o));
-      if (isNpc(a)) return Math.random() < this.config.npcActivity;
+      if (isTitan(a)) return finale || engine.agentsIn(a.location, a.id).some(o => isHeir(o) || isNpc(o));
+      if (isNpc(a)) return finale ? Math.random() < Math.max(0.7, this.config.npcActivity) : Math.random() < this.config.npcActivity;
       return true;
     });
     const decisions = await this.decideAll(deciders, '思考中');
@@ -206,10 +223,13 @@ export class OmphalosSimulation {
     // 2. 结算：随机顺序逐一执行
     this.setPhase('结算行动');
     const order = deciders.map((a, i) => ({ a, d: decisions[i] })).sort(() => Math.random() - 0.5);
-    for (const { a, d } of order) this.applyDecision(a, d);
+    for (const { a, d } of order) {
+      this.applyDecision(a, d);
+      if (this.ended) break;
+    }
 
     // 3. 回应：当天被搭话的人立即回应一次
-    if (this.config.replyPhase && engine.inbox.size) {
+    if (this.config.replyPhase && engine.inbox.size && !this.ended) {
       const inbox = new Map(engine.inbox);
       engine.inbox.clear();
       const responders = [...inbox.keys()].map(id => s.agents[id]).filter(a => a && a.condition === 'active');
@@ -218,13 +238,16 @@ export class OmphalosSimulation {
         return `${from}刚刚对你说了话，请回应（可以只说话，也可以同时行动）。`;
       }, REPLY_ACTIONS);
       this.checkAbort();
-      responders.forEach((a, i) => this.applyDecision(a, replies[i]));
+      responders.forEach((a, i) => { if (!this.ended) this.applyDecision(a, replies[i]); });
     }
 
     // 4. 世界演化
     this.setPhase('世界演化');
     engine.endDay();
-    if (this.pendingEraEnd) this.startNewEra(this.pendingEraEnd);
+    const eraEnd = this.pendingEraEnd;
+    this.pendingEraEnd = undefined;
+    if (eraEnd?.outcome === 'liberation') this.liberate(eraEnd.reason);
+    else if (eraEnd) this.startNewEra(eraEnd.reason);
 
     // 5. 记忆整理（后台并发，不阻塞下一天太久）
     const gw = this.gateway!;
@@ -266,7 +289,7 @@ export class OmphalosSimulation {
       this.systemPrompts.set(agent.id, system);
     }
     const user = buildUserPrompt(this.engine, agent, this.memoryOf(agent.id), trigger);
-    const kindAllowed = ALLOWED_ACTIONS[agent.kind];
+    const kindAllowed = this.allowedFor(agent);
     return this.gateway!.decide({
       agentId: agent.id,
       day: this.state.day,
@@ -301,25 +324,66 @@ export class OmphalosSimulation {
     agent.lastActions = summaries;
   }
 
-  private startNewEra(outcome: 'recreation' | 'collapse') {
-    this.pendingEraEnd = undefined;
+  // 当前阶段下该角色可用的行动
+  private allowedFor(agent: AgentStatus): ActionType[] {
+    const finale = this.state.phase === 'irontomb';
+    return ALLOWED_ACTIONS[agent.kind].filter(t => {
+      if (t === 'SUPPORT_FRONT') return finale;
+      if (t === 'MOVE' && isTitan(agent)) return finale;
+      return true;
+    });
+  }
+
+  // 真结局：铁墓崩解，永劫回归被打破
+  private liberate(reason: string) {
+    const s = this.state;
+    const summary = `${reason}。十二位半神与泰坦、城邦的人们并肩击碎了「毁灭」，永劫回归在第${s.era}纪元终结——翁法罗斯迎来了真正的黎明。`;
+    s.phase = 'ended';
+    s.ending = { era: s.era, day: s.day, summary };
+    s.eraHistory = [...s.eraHistory, { era: s.era, days: s.day, embers: returnedEmberCount(s), outcome: 'liberation', summary }];
+    this.engine.log('era', summary, 'critical');
+  }
+
+  // 失败：永劫回归重启，但留下轮回印记
+  private startNewEra(reason: string) {
     const old = this.state;
     const embers = returnedEmberCount(old);
-    const summary = outcome === 'recreation'
-      ? `十二火种尽数归还创世涡心，第${old.era}纪元迎来再创世。`
-      : `黑潮吞没了翁法罗斯，第${old.era}纪元终结，永劫回归再度开启。`;
+    const summary = `${reason}，第${old.era}纪元终结，永劫回归再度开启。`;
+    const gain = old.phase === 'irontomb' ? 2 : 1;
+    const chrysos = this.engine.demigodActive('岁月') ? 1 : 0;
+    const note = old.phase === 'irontomb'
+      ? `第${old.era}纪元：曾在最终之战中与铁墓交锋（铁墓剩余${this.engine.enemy('irontomb')?.hp ?? '?'}生命）。败因：${reason}。`
+      : `第${old.era}纪元：归还了${embers}枚火种。败因：${reason}。`;
+
     const { state } = createWorld({ npcCount: this.config.npcCount, npcs: this.npcSeeds });
     state.era = old.era + 1;
     state.totalDays = old.totalDays;
-    state.eraHistory = [...old.eraHistory, { era: old.era, days: old.day, embers, outcome, summary }];
+    state.eraHistory = [...old.eraHistory, { era: old.era, days: old.day, embers, outcome: 'collapse', summary }];
     state.logs = old.logs;
     state.messages = old.messages;
     state.ai = old.ai;
     // 轮回会加深：每一纪元黑潮都更凶猛
     state.darkTide.growth = old.darkTide.growth;
+    // 轮回印记：记忆在轮回中沉淀，黄金裔带着更强的力量重启
+    state.imprint = { count: old.imprint.count + gain + chrysos, notes: [...old.imprint.notes, note].slice(-6) };
+    applyImprint(state);
     this.engine.state = state;
     this.memories.forEach(m => m.carryOver(old.era));
     this.engine.log('era', `${summary} 第${state.era}纪元开始。`, 'critical');
+    this.engine.log('era', `轮回印记加深至${state.imprint.count}层${chrysos ? '（岁月留痕多刻下一层）' : ''}：黄金裔的攻击与生命随之增长。`, 'high');
+  }
+}
+
+// 轮回印记对新纪元黄金裔的加成
+export function applyImprint(state: OmphalosWorldState) {
+  const n = state.imprint.count;
+  if (!n) return;
+  for (const a of Object.values(state.agents)) {
+    if (!isHeir(a)) continue;
+    a.power += Math.min(10, 2 * n);
+    a.defense += Math.min(6, n);
+    a.maxHp += 10 * n;
+    a.hp = a.maxHp;
   }
 }
 
@@ -342,5 +406,7 @@ function describe(action: Action, s: OmphalosWorldState): string {
     case 'REST': return '休息';
     case 'CLEANSE': return '净化黑潮';
     case 'RETURN_EMBER': return '归还火种';
+    case 'HAND_EMBER': return `把火种交给${name(action.targetId)}`;
+    case 'SUPPORT_FRONT': return '支援最终之战的前线';
   }
 }

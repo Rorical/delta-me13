@@ -22,6 +22,11 @@
             :class="{ taken: t.emberTaken, corrupted: t.disposition === 'corrupted', fallen: t.condition === 'fallen' }" />
         </g>
         <path v-if="c.id === RECREATION_SITE" :d="star" class="site-mark" />
+        <!-- 敌对单位：盗火行者为小十字，铁墓为大十字 -->
+        <g v-for="(e, i) in c.enemies" :key="e.id" :transform="`translate(${-4.2 - i * 2.6}, -3.6)`" class="enemy-mark" :class="e.enemyType">
+          <title>{{ e.name }} · HP {{ e.hp }}/{{ e.maxHp }}</title>
+          <path :d="e.enemyType === 'irontomb' ? crossLarge : cross" />
+        </g>
         <text y="8.2" class="label">{{ c.name }}</text>
         <g v-if="c.people > 0" transform="translate(3.6,-3.4)">
           <rect x="-2.2" y="-1.6" width="4.4" height="3.2" rx="0.6" class="badge" :class="{ heir: c.heirs > 0 }" />
@@ -33,6 +38,8 @@
       <span><svg viewBox="-2 -2 4 4"><path :d="diamond" class="titan-mark" /></svg>泰坦守护火种</span>
       <span><svg viewBox="-2 -2 4 4"><path :d="diamond" class="titan-mark taken" /></svg>火种已取走</span>
       <span><svg viewBox="-2 -2 4 4"><path :d="diamond" class="titan-mark corrupted" /></svg>失神泰坦</span>
+      <span><svg viewBox="-2 -2 4 4"><g class="enemy-mark"><path :d="cross" /></g></svg>盗火行者</span>
+      <span v-if="state.phase !== 'flamechase'"><svg viewBox="-2.4 -2.4 4.8 4.8"><g class="enemy-mark irontomb"><path :d="crossLarge" /></g></svg>铁墓</span>
       <span><svg viewBox="-3 -3 6 6"><circle r="2.6" class="halo" style="opacity:.6" /></svg>光晕越浓，黑潮越深</span>
       <span><svg viewBox="-3 -2 6 4"><rect x="-2.2" y="-1.6" width="4.4" height="3.2" rx="0.6" class="badge heir" /></svg>在场人数（含黄金裔）</span>
     </div>
@@ -41,7 +48,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import type { OmphalosWorldState, TitanStatus } from '../../core/omphalosWorldState';
+import { isEnemy, isTitan, type OmphalosWorldState } from '../../core/omphalosWorldState';
 import { getCityEdges, RECREATION_SITE } from '../../core/config/cities';
 import { tideAlpha } from './useSimulation';
 
@@ -50,6 +57,8 @@ defineEmits<{ (e: 'select', id: string): void }>();
 
 const edges = getCityEdges();
 const diamond = 'M0,-1.8 L1.4,0 L0,1.8 L-1.4,0 Z';
+const cross = 'M-1.3,-1.3 L1.3,1.3 M1.3,-1.3 L-1.3,1.3';
+const crossLarge = 'M-2,-2 L2,2 M2,-2 L-2,2 M0,-2.2 L0,2.2';
 const star = 'M0,-2 L0.5,-0.5 L2,0 L0.5,0.5 L0,2 L-0.5,0.5 L-2,0 L-0.5,-0.5 Z';
 const cities = computed(() => { void props.tick; return props.state.cities; });
 
@@ -57,10 +66,12 @@ const cityList = computed(() => {
   void props.tick;
   const agents = Object.values(props.state.agents);
   return Object.values(props.state.cities).map(c => {
-    const present = agents.filter(a => a.location === c.id && a.condition === 'active' && a.kind !== 'titan');
+    const present = agents.filter(a => a.location === c.id && a.condition === 'active' && (a.kind === 'heir' || a.kind === 'npc'));
     return {
       ...c,
-      titans: c.titanIds.map(id => props.state.agents[id] as TitanStatus).filter(Boolean),
+      // 泰坦按实际所在地显示（最终之战中泰坦会离开领域）
+      titans: agents.filter(isTitan).filter(t => t.location === c.id),
+      enemies: agents.filter(isEnemy).filter(e => e.location === c.id && e.condition === 'active'),
       heirs: present.filter(a => a.kind === 'heir').length,
       people: present.length
     };
@@ -84,6 +95,8 @@ const cityList = computed(() => {
 .titan-mark.taken { fill: #0d1330; stroke: rgba(173, 216, 230, 0.8); stroke-width: 0.3; }
 .titan-mark.corrupted { stroke: rgba(173, 216, 230, 0.95); stroke-width: 0.35; stroke-dasharray: 0.5 0.35; fill: rgba(173, 216, 230, 0.35); }
 .titan-mark.fallen { opacity: 0.35; }
+.enemy-mark path { fill: none; stroke: rgba(173, 216, 230, 1); stroke-width: 0.55; stroke-linecap: round; filter: drop-shadow(0 0 0.8px rgba(173, 216, 230, 0.9)); }
+.enemy-mark.irontomb path { stroke-width: 0.8; }
 .site-mark { fill: rgba(173, 216, 230, 0.95); }
 .label { font-size: 2.4px; fill: rgba(173, 216, 230, 0.85); text-anchor: middle; pointer-events: none; font-family: var(--ui-font); }
 .city-node.selected .label { fill: rgba(220, 240, 250, 1); }

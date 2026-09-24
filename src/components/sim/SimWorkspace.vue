@@ -8,12 +8,12 @@
         <div class="status"><span class="om-dot" :class="{ live: status === 'running' }"></span>{{ statusText }}</div>
       </div>
       <div class="controls">
-        <button v-if="status !== 'running'" class="om-btn primary" :disabled="status === 'stopping'" @click="start">
+        <button v-if="status !== 'running'" class="om-btn primary" :disabled="status === 'stopping' || view.ended" @click="start">
           <Play :size="14" /> {{ status === 'paused' ? '继续' : '启动仿真' }}
         </button>
         <button v-else class="om-btn" @click="sim.pause()"><Pause :size="14" /> 暂停</button>
-        <button class="om-btn" :disabled="busy" @click="step" title="仅推进一天"><StepForward :size="14" /> 单步</button>
-        <button class="om-btn" :disabled="status === 'idle'" @click="sim.stop()"><Square :size="14" /> 停止</button>
+        <button class="om-btn" :disabled="busy || view.ended" @click="step" title="仅推进一天"><StepForward :size="14" /> 单步</button>
+        <button class="om-btn" :disabled="status === 'idle' || status === 'ended'" @click="sim.stop()"><Square :size="14" /> 停止</button>
         <button class="om-btn" :disabled="busy" @click="reset"><RotateCcw :size="14" /> 重置</button>
         <button class="om-btn icon-only" :class="{ primary: showSettings }" @click="showSettings = !showSettings" title="仿真参数"><Settings :size="15" /></button>
       </div>
@@ -25,9 +25,11 @@
 
     <!-- 指标条 -->
     <div class="kpis">
-      <div class="kpi"><label><InfinityIcon :size="12" /> 纪元</label><b>{{ view.era }}</b></div>
+      <div class="kpi"><label><InfinityIcon :size="12" /> 纪元</label><b>{{ view.era }}</b><small v-if="view.imprint" title="轮回印记：失败的轮回让黄金裔更强">印记 ×{{ view.imprint }}</small></div>
       <div class="kpi"><label><Sun :size="12" /> 天数</label><b>{{ view.day }}</b><small>累计 {{ view.totalDays }}</small></div>
-      <div class="kpi wide"><label><Flame :size="12" /> 火种归还</label><b>{{ view.returned }}/12</b><small>已取得 {{ view.embers }}</small>
+      <div v-if="view.tomb" class="kpi wide"><label><Skull :size="12" /> 铁墓</label><b>{{ view.tomb.hp.toLocaleString() }}</b><small>士气 {{ view.tomb.morale }} · 前线 {{ view.tomb.front }} 人 · 第{{ view.tomb.day }}日</small>
+        <div class="om-bar hazard"><i :style="{ width: view.tomb.pct + '%' }"></i></div></div>
+      <div v-else class="kpi wide"><label><Flame :size="12" /> 火种归还</label><b>{{ view.returned }}/12</b><small>已取得 {{ view.embers }}{{ view.thief }}</small>
         <div class="om-bar"><i :style="{ width: view.returned / 12 * 100 + '%' }"></i></div></div>
       <div class="kpi wide"><label><Waves :size="12" /> 黑潮</label><b>{{ view.tide.toFixed(1) }}%</b><small>{{ tideLabel(view.tide) }}</small>
         <div class="om-bar" :class="{ hazard: view.tide >= 45 }"><i :style="{ width: view.tide + '%' }"></i></div></div>
@@ -36,6 +38,8 @@
     </div>
 
     <div v-if="!openAIStore.isConnected" class="notice"><Info :size="14" /> 因果矩阵未连接 —— 请先在「再创世 / 因果矩阵」中配置模型端点与密钥。</div>
+    <div v-if="view.ending" class="notice banner"><Sunrise :size="16" /><div><b>真结局 · 永劫回归被打破</b>{{ view.ending }}<small>重置后可开启新的轮回。</small></div></div>
+    <div v-else-if="view.tomb" class="notice banner"><Swords :size="16" /><div><b>最终之战 · 铁墓降临于创世涡心</b>半神与泰坦前往前线迎战，居民守住城邦并输送支援。每座沦陷的城邦都会让铁墓更强。</div></div>
     <div v-if="sim.lastError" class="notice"><AlertTriangle :size="14" /> {{ sim.lastError }}</div>
 
     <section v-if="showSettings" class="om-panel settings">
@@ -108,11 +112,13 @@
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
 import {
   Activity, AlertTriangle, ArrowLeft, Cpu, Flame, Info, Infinity as InfinityIcon, Map as MapIcon, Maximize2, MessageSquare,
-  Minimize2, Pause, Play, RotateCcw, ScanSearch, ScrollText, Settings, Square, StepForward, Sun, Users, Waves
+  Minimize2, Pause, Play, RotateCcw, ScanSearch, ScrollText, Settings, Skull, Square, StepForward, Sun, Sunrise, Swords, Users, Waves
 } from 'lucide-vue-next';
 import { useOpenAIStore } from '../../stores/openAIStore';
 import { notificationService } from '../../services/notificationService';
-import { collectedEmberCount, returnedEmberCount } from '../../core/omphalosWorldState';
+import { collectedEmberCount, isEnemy, returnedEmberCount } from '../../core/omphalosWorldState';
+import { IRONTOMB_ID, FLAMETHIEF_ID } from '../../core/engine';
+import { RECREATION_SITE } from '../../core/config/cities';
 import WorldMap from './WorldMap.vue';
 import AgentRoster from './AgentRoster.vue';
 import AgentDetail from './AgentDetail.vue';
@@ -153,7 +159,7 @@ const busy = computed(() => status.value === 'running' || status.value === 'stop
 const statusText = computed(() => {
   void tick.value;
   const p = sim.progress;
-  const label = { idle: '待机', running: '运行中', paused: '已暂停', stopping: '正在停止' }[sim.status];
+  const label = { idle: '待机', running: '运行中', paused: '已暂停', stopping: '正在停止', ended: '轮回终结' }[sim.status];
   if (p.total) return `${label} · ${p.phase} ${p.done}/${p.total}`;
   return p.phase && !p.phase.includes(label) ? `${label} · ${p.phase}` : label;
 });
@@ -161,8 +167,19 @@ const statusText = computed(() => {
 const view = computed(() => {
   void tick.value;
   const s = sim.state;
+  const tomb = s.agents[IRONTOMB_ID];
+  const thief = s.agents[FLAMETHIEF_ID];
+  const front = Object.values(s.agents).filter(a => a.location === RECREATION_SITE && a.condition === 'active' && !isEnemy(a)).length;
   return {
     era: s.era,
+    imprint: s.imprint.count,
+    ended: s.phase === 'ended',
+    ending: s.ending?.summary ?? '',
+    tomb: tomb && s.finale ? {
+      hp: Math.max(0, tomb.hp), pct: Math.max(0, tomb.hp) / tomb.maxHp * 100,
+      morale: Math.round(s.finale.morale), front, day: s.day - s.finale.startDay + 1
+    } : null,
+    thief: thief && isEnemy(thief) && thief.embers.length ? ` · 被盗 ${thief.embers.length}` : '',
     day: s.day,
     totalDays: s.totalDays,
     embers: collectedEmberCount(s),
@@ -270,6 +287,9 @@ onUnmounted(() => {
 .kpi small { grid-area: sub; font-size: 11px; color: var(--om-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .kpi .om-bar { grid-area: bar; margin-top: 3px; }
 
+.notice.banner { align-items: flex-start; font-size: 13px; line-height: 1.7; }
+.notice.banner b { display: block; font-size: 15px; }
+.notice.banner small { display: block; color: var(--om-muted); }
 .notice { display: flex; align-items: center; gap: 8px; padding: 7px 12px; border: 1px solid var(--om-line-strong); border-left: 4px solid var(--ui-select); background: var(--ui-fill-inner); }
 
 .settings { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 8px 20px; }

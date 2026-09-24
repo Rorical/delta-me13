@@ -29,7 +29,7 @@
     </button>
     <h5><Users :size="12" /> 此地之人 <small>{{ city.present.length }}</small></h5>
     <div class="present">
-      <button v-for="a in city.present" :key="a.id" class="om-item person" :class="{ heir: a.kind === 'heir' }" @click="$emit('agent', a.id)">
+      <button v-for="a in city.present" :key="a.id" class="om-item person" :class="{ heir: a.kind === 'heir', enemy: a.kind === 'enemy' }" @click="$emit('agent', a.id)">
         {{ a.name }}<small>{{ a.subtitle }}</small>
       </button>
       <span v-if="!city.present.length" class="om-muted small">此地空无一人</span>
@@ -54,7 +54,7 @@ const city = computed(() => {
     ...c,
     titans: c.titanIds.map(id => props.state.agents[id] as TitanStatus).filter(Boolean),
     present: Object.values(props.state.agents)
-      .filter(a => a.location === c.id && !isTitan(a))
+      .filter(a => a.location === c.id && (!isTitan(a) || !c.titanIds.includes(a.id)))
       .map(a => ({ id: a.id, name: a.name, kind: a.kind, subtitle: a.subtitle }))
   };
 });

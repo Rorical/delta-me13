@@ -16,13 +16,13 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import { ArrowRight, Crown, Sparkles, User } from 'lucide-vue-next';
+import { ArrowRight } from 'lucide-vue-next';
+import { KIND_ICON as kindIcon } from './useSimulation';
 import type { OmphalosWorldState } from '../../core/omphalosWorldState';
 
 const props = defineProps<{ state: OmphalosWorldState; tick: number; agentId?: string }>();
 defineEmits<{ (e: 'agent', id: string): void }>();
 
-const kindIcon: Record<string, unknown> = { heir: Sparkles, titan: Crown, npc: User };
 
 const chats = computed(() => {
   void props.tick;

@@ -3,14 +3,18 @@
   <div class="launcher om-root">
     <div class="om-inner intro">
       <p>「翁法罗斯」多代理仿真。十二位黄金裔踏上逐火之旅，挑战或说服十二泰坦，取得火种并在创世涡心归还；
-        黑潮则在城邦之间蔓延。每个电信号都由因果矩阵（大语言模型）驱动决策。</p>
+        盗火行者追猎携火者，黑潮在城邦之间蔓延。十二火种归还之后，铁墓降临——所有人必须协同作战，才能打破永劫回归。
+        每个电信号都由因果矩阵（大语言模型）驱动决策。</p>
     </div>
 
     <div class="status-row">
       <span class="om-dot" :class="{ live: view.status === 'running' }"></span>
       <span>{{ view.statusLabel }}</span>
-      <span class="om-muted">· 第{{ view.era }}纪元 第{{ view.day }}天</span>
+      <span class="om-muted">· 第{{ view.era }}纪元 第{{ view.day }}天{{ view.phase }}</span>
+      <span v-if="view.imprint" class="om-tag">轮回印记 ×{{ view.imprint }}</span>
     </div>
+
+    <div v-if="view.ending" class="om-inner ending"><b>轮回已被打破</b>{{ view.ending }}</div>
 
     <div class="mini-kpis">
       <div><label><Flame :size="12" /> 火种归还</label><b>{{ view.returned }}/12</b></div>
@@ -50,7 +54,10 @@ const view = computed(() => {
   const s = sim.state;
   return {
     status: sim.status,
-    statusLabel: { idle: '待机', running: '运行中', paused: '已暂停', stopping: '正在停止' }[sim.status],
+    statusLabel: { idle: '待机', running: '运行中', paused: '已暂停', stopping: '正在停止', ended: '轮回终结' }[sim.status],
+    phase: s.phase === 'irontomb' ? ' · 最终之战' : '',
+    imprint: s.imprint.count,
+    ending: s.ending?.summary ?? '',
     era: s.era,
     day: s.day,
     returned: returnedEmberCount(s),
@@ -74,6 +81,8 @@ onMounted(() => {
 .mini-kpis label { display: flex; align-items: center; gap: 4px; font-size: 11px; color: var(--om-muted); }
 .mini-kpis b { font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .notice { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border: 1px solid var(--om-line-strong); border-left: 4px solid var(--ui-select); background: var(--ui-fill-inner); font-size: 13px; }
+.ending { line-height: 1.8; }
+.ending b { display: block; font-size: 16px; }
 .enter { align-self: flex-start; padding: 10px 26px; font-size: 16px; }
 @media (max-width: 700px) { .mini-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 </style>

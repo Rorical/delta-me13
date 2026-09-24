@@ -1,7 +1,9 @@
 // 翁法罗斯世界状态 —— 单一数据源
 // 所有代理（黄金裔 / 泰坦 / NPC）都统一存放在 `agents` 中，城邦之间以图结构相连。
 
-export type AgentKind = 'heir' | 'titan' | 'npc';
+export type AgentKind = 'heir' | 'titan' | 'npc' | 'enemy';
+export type EnemyType = 'flamethief' | 'irontomb';
+export type WorldPhase = 'flamechase' | 'irontomb' | 'ended';
 export type AgentCondition = 'active' | 'down' | 'fallen';
 export type TitanDisposition = 'benevolent' | 'neutral' | 'corrupted';
 export type ResourceKey = 'food' | 'materials' | 'mana';
@@ -72,7 +74,14 @@ export interface NpcStatus extends AgentBase {
   role: string;
 }
 
-export type AgentStatus = HeirStatus | TitanStatus | NpcStatus;
+// 由引擎脚本驱动的敌对单位：盗火行者、铁墓（不调用模型）
+export interface EnemyStatus extends AgentBase {
+  kind: 'enemy';
+  enemyType: EnemyType;
+  embers: string[];                 // 盗火行者夺走的火种
+}
+
+export type AgentStatus = HeirStatus | TitanStatus | NpcStatus | EnemyStatus;
 
 export interface Ember {
   id: string;
@@ -122,7 +131,7 @@ export interface EraRecord {
   era: number;
   days: number;
   embers: number;
-  outcome: 'recreation' | 'collapse';
+  outcome: 'recreation' | 'collapse' | 'liberation';
   summary: string;
 }
 
@@ -164,6 +173,16 @@ export interface OmphalosWorldState {
   logs: WorldLog[];
   messages: ChatMessage[];
   ai: AIStats;
+  phase: WorldPhase;
+  finale?: {                        // 最终之战：铁墓降临
+    startDay: number;
+    morale: number;                 // 前线士气：由各方支援积累
+  };
+  imprint: {                        // 轮回印记：失败的轮回留下的经验
+    count: number;
+    notes: string[];
+  };
+  ending?: { era: number; day: number; summary: string };
 }
 
 export const LOG_LIMIT = 800;
@@ -178,6 +197,27 @@ export function isTitan(a: AgentStatus | undefined): a is TitanStatus {
 }
 export function isNpc(a: AgentStatus | undefined): a is NpcStatus {
   return !!a && a.kind === 'npc';
+}
+export function isEnemy(a: AgentStatus | undefined): a is EnemyStatus {
+  return !!a && a.kind === 'enemy';
+}
+
+// 城邦间的道路距离（BFS），不可达返回 Infinity
+export function cityDistance(cities: Record<string, CityState>, from: string, to: string): number {
+  if (from === to) return 0;
+  const dist: Record<string, number> = { [from]: 0 };
+  const queue = [from];
+  while (queue.length) {
+    const cur = queue.shift()!;
+    for (const n of cities[cur]?.neighbors ?? []) {
+      if (dist[n] === undefined) {
+        dist[n] = dist[cur] + 1;
+        if (n === to) return dist[n];
+        queue.push(n);
+      }
+    }
+  }
+  return Infinity;
 }
 
 // 城邦间最短路径（BFS），返回下一跳；已在目标或不可达时返回 undefined

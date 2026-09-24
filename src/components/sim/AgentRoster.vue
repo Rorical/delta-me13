@@ -32,27 +32,28 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import { Crown, Flame, MapPin, Sparkles, User } from 'lucide-vue-next';
+import { Flame, MapPin, Sparkles } from 'lucide-vue-next';
+import { KIND_ICON as kindIcon } from './useSimulation';
 import type { OmphalosSimulation } from '../../core/llmSimulation';
-import { isHeir } from '../../core/omphalosWorldState';
+import { isEnemy, isHeir } from '../../core/omphalosWorldState';
 
 const props = defineProps<{ sim: OmphalosSimulation; tick: number; selectedId?: string }>();
 defineEmits<{ (e: 'select', id: string): void }>();
 
-const kindIcon = { heir: Sparkles, titan: Crown, npc: User };
 const kinds = [
   { value: 'all', label: '全部' },
   { value: 'heir', label: '黄金裔' },
   { value: 'titan', label: '泰坦' },
-  { value: 'npc', label: '居民' }
+  { value: 'npc', label: '居民' },
+  { value: 'enemy', label: '敌对' }
 ] as const;
-const kind = ref<'all' | 'heir' | 'titan' | 'npc'>('heir');
+const kind = ref<'all' | 'heir' | 'titan' | 'npc' | 'enemy'>('heir');
 const query = ref('');
 
 const agents = computed(() => { void props.tick; return Object.values(props.sim.state.agents); });
 
 const counts = computed(() => {
-  const c: Record<string, number> = { all: 0, heir: 0, titan: 0, npc: 0 };
+  const c: Record<string, number> = { all: 0, heir: 0, titan: 0, npc: 0, enemy: 0 };
   for (const a of agents.value) { c.all++; c[a.kind]++; }
   return c;
 });
@@ -66,7 +67,7 @@ const rows = computed(() => {
       id: a.id, name: a.name, kind: a.kind, location: a.location,
       hp: a.hp, maxHp: a.maxHp, hpPct: Math.max(0, Math.round((a.hp / a.maxHp) * 100)),
       condition: a.condition, lastThought: a.lastThought,
-      embers: isHeir(a) ? a.embers.length : 0,
+      embers: isHeir(a) || isEnemy(a) ? a.embers.length : 0,
       demigod: isHeir(a) && a.demigod.length > 0
     }));
 });

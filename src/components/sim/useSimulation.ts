@@ -1,4 +1,5 @@
-import { markRaw, onMounted, onUnmounted, ref } from 'vue';
+import { markRaw, onMounted, onUnmounted, ref, type Component } from 'vue';
+import { Crown, Skull, Sparkles, User } from 'lucide-vue-next';
 import { OmphalosSimulation, DEFAULT_SIM_CONFIG, type SimConfig } from '../../core/llmSimulation';
 
 const CONFIG_KEY = 'omphalos-sim-config';
@@ -54,7 +55,9 @@ export function tideLabel(v: number): string {
   return '安定';
 }
 
-export const KIND_LABEL: Record<string, string> = { heir: '黄金裔', titan: '泰坦', npc: '居民' };
+export const KIND_LABEL: Record<string, string> = { heir: '黄金裔', titan: '泰坦', npc: '居民', enemy: '敌对' };
+
+export const KIND_ICON: Record<string, Component> = { heir: Sparkles, titan: Crown, npc: User, enemy: Skull };
 
 export const DISPOSITION_LABEL: Record<string, string> = { benevolent: '仍记神谕', neutral: '火种试炼', corrupted: '失神 · 黑潮侵染' };
 

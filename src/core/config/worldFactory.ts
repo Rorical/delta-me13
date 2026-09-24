@@ -77,7 +77,9 @@ export function createWorld(options: WorldOptions): { state: OmphalosWorldState;
     eraHistory: [],
     logs: [],
     messages: [],
-    ai: { calls: 0, failures: 0, promptTokens: 0, completionTokens: 0, totalMs: 0, recent: [] }
+    ai: { calls: 0, failures: 0, promptTokens: 0, completionTokens: 0, totalMs: 0, recent: [] },
+    phase: 'flamechase',
+    imprint: { count: 0, notes: [] }
   };
   const regions = Object.values(state.cities).filter(c => c.id !== '创世涡心');
   state.darkTide.global = Math.round(regions.reduce((sum, c) => sum + c.darkTide, 0) / regions.length * 10) / 10;
